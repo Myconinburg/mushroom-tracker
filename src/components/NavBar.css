@@ -1,0 +1,26 @@
+.nav {
+    display: flex;
+    justify-content: space-around;
+    background-color: #1f1f1f;
+    padding: 12px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid #333;
+  }
+  
+  .nav button {
+    background: none;
+    border: none;
+    color: #ccc;
+    font-size: 16px;
+    padding: 10px 16px;
+    cursor: pointer;
+  }
+  
+  .nav button.active {
+    color: white;
+    font-weight: bold;
+    border-bottom: 2px solid #ffd200;
+  }
+  
