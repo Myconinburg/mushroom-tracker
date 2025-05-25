@@ -1,10 +1,13 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
+
+// Import Components (assuming they are in ./components/)
 import Navbar from './components/Navbar';
 import HarvestModal from './components/HarvestModal';
 import SettingsPanel from './components/SettingsPanel';
+import LoginComponent from './components/LoginComponent.jsx'; // Updated import for .jsx extension
 
-// Import Views
+// Import Views (assuming they are in ./views/)
 import HomepageView from './views/HomepageView';
 import LabView from './views/LabView';
 import IncubationView from './views/IncubationView';
@@ -15,18 +18,22 @@ import ManageVarietiesView from './views/ManageVarietiesView';
 import ManageSubstratesView from './views/ManageSubstratesView';
 import ManageSuppliersView from './views/ManageSuppliersView';
 
-// Import API Service
+// Import API Service - PATH UPDATED
 import {
   fetchBatches,
   createBatch,
   updateExistingBatch,
   deleteExistingBatch,
   fetchVarieties,
-  loginUser // You'll need a login component to use this
-} from './api'; // Make sure the path is correct
+  // loginUser // loginUser is now used directly by LoginComponent, no need to import here
+} from './api'; // Path updated: changed from './services/api' to './api'
 
+// Main Application Component
 function App() {
+  // State for the current view displayed (internal key like 'Spawn Point')
   const [currentView, setCurrentView] = useState('Spawn Point');
+
+  // State for the list of all batches, loaded from localStorage or initialized empty
   const [batches, setBatches] = useState([]); // Initialize as empty, data will come from API
   const [varieties, setVarieties] = useState([]); // State for varieties
   const [isHarvestModalOpen, setIsHarvestModalOpen] = useState(false);
@@ -64,14 +71,16 @@ function App() {
             setIsAuthenticated(false);
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            alert('Your session has expired. Please log in again.');
-            // You would typically redirect to a login page here
+            // alert('Your session has expired. Please log in again.'); // Use a modal or in-app message instead of alert
+            console.log('Your session has expired. Please log in again.');
+            // You would typically redirect to a login page here or show a login modal
           }
         }
       };
       loadData();
     }
   }, [isAuthenticated]); // Reload data when authentication status changes
+
 
   // --- API Integrated Batch Management Functions ---
   const addBatch = async (newBatchData) => {
@@ -81,7 +90,8 @@ function App() {
       setCurrentView('Incubation');
     } catch (error) {
       console.error("Error creating batch:", error);
-      alert("Failed to create batch: " + error.message);
+      // alert("Failed to create batch: " + error.message); // Use a modal or in-app message instead of alert
+      console.log("Failed to create batch: " + error.message);
     }
   };
 
@@ -93,7 +103,8 @@ function App() {
       );
     } catch (error) {
       console.error("Error updating batch:", error);
-      alert("Failed to update batch: " + error.message);
+      // alert("Failed to update batch: " + error.message); // Use a modal or in-app message instead of alert
+      console.log("Failed to update batch: " + error.message);
     }
   };
 
@@ -115,23 +126,27 @@ function App() {
       );
     } catch (error) {
       console.error("Error moving batch:", error);
-      alert("Failed to move batch: " + error.message);
+      // alert("Failed to move batch: " + error.message); // Use a modal or in-app message instead of alert
+      console.log("Failed to move batch: " + error.message);
     }
   };
 
   const deleteBatch = async (batchId) => {
     const batchLabelToDelete = batches.find(b => b.id === batchId)?.batchLabel || batchId;
+    // Using a simple confirm here, but consider a custom modal for better UX
     if (window.confirm(`Are you sure you want to permanently delete batch ${batchLabelToDelete}? This cannot be undone.`)) {
       try {
         await deleteExistingBatch(batchId);
         setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId));
       } catch (error) {
         console.error("Error deleting batch:", error);
-        alert("Failed to delete batch: " + error.message);
+        // alert("Failed to delete batch: " + error.message); // Use a modal or in-app message instead of alert
+        console.log("Failed to delete batch: " + error.message);
       }
     }
   };
 
+  // --- Harvest Modal Functions ---
   const openHarvestModal = (batchId) => {
     const target = batches.find(b => b.id === batchId);
     if (target) {
@@ -166,52 +181,55 @@ function App() {
       closeHarvestModal();
     } catch (error) {
       console.error("Error submitting harvest:", error);
-      alert("Failed to submit harvest: " + error.message);
+      // alert("Failed to submit harvest: " + error.message); // Use a modal or in-app message instead of alert
+      console.log("Failed to submit harvest: " + error.message);
     }
   };
 
 
+  // --- Settings Panel Functions ---
   const openSettingsPanel = () => { setIsSettingsPanelOpen(true); };
   const closeSettingsPanel = () => { setIsSettingsPanelOpen(false); };
 
+  // --- View Rendering Logic ---
   const renderView = () => {
+    // Display Login component if not authenticated
     if (!isAuthenticated) {
-      return (
-        <div className="flex items-center justify-center h-screen bg-gray-100">
-          <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
-            {/* You'll need to create a dedicated Login component */}
-            <p>Please implement a Login component that calls `loginUser` from `./api` and sets `isAuthenticated` to true upon success.</p>
-            {/* Example: <Login onLoginSuccess={() => setIsAuthenticated(true)} /> */}
-          </div>
-        </div>
-      );
+      return <LoginComponent onLoginSuccess={() => setIsAuthenticated(true)} />;
     }
 
-    switch (currentView) {
-      case 'Spawn Point':
-        return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
-      case 'Lab':
-        return <LabView onAddBatch={addBatch} />;
-      case 'Incubation':
-        return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} />;
-      case 'Grow Room':
-        return <GrowRoomView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onOpenHarvestModal={openHarvestModal} />;
-      case 'Retirement':
-        return <RetirementView batches={batches} onMoveBatch={moveBatch} />;
-      case 'ManageVarieties':
-        return <ManageVarietiesView varieties={varieties} />; // Pass varieties if needed
-      case 'ManageSubstrates':
-        return <ManageSubstratesView />; // You'll need API calls for substrates here
-      case 'ManageSuppliers':
-        return <ManageSuppliersView />; // You'll need API calls for suppliers here
-      case 'Dashboard':
-      default:
-        return <DashboardView batches={batches} />;
+    try {
+        switch (currentView) {
+            case 'Spawn Point': // Internal name for the state
+                return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
+            case 'Lab':
+                return <LabView onAddBatch={addBatch} />;
+            case 'Incubation':
+                return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} />;
+            case 'Grow Room':
+                return <GrowRoomView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onOpenHarvestModal={openHarvestModal} />;
+            case 'Retirement':
+                return <RetirementView batches={batches} onMoveBatch={moveBatch} />;
+            case 'ManageVarieties':
+                return <ManageVarietiesView varieties={varieties} />;
+            case 'ManageSubstrates':
+                return <ManageSubstratesView />;
+            case 'ManageSuppliers':
+                return <ManageSuppliersView />;
+            case 'Dashboard':
+            default: // Default to Dashboard if view name is unknown
+                return <DashboardView batches={batches}/>;
+        }
+    } catch (error) {
+        console.error("Error rendering view:", currentView, error);
+        // Display a user-friendly error message within the UI
+        return <div className="p-6 text-red-600 bg-red-100 border border-red-400 rounded-md">Error rendering view: {currentView}. Check console for details.</div>;
     }
   };
 
+  // Main App JSX Structure
   return (
+    // Use a React Fragment <>...</> if you don't need an extra div
     <>
       <Navbar
         currentView={currentView}
@@ -226,17 +244,21 @@ function App() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {renderView()}
       </main>
+      {/* Render Harvest Modal conditionally */}
       {isHarvestModalOpen && harvestTargetBatch && (
-        <HarvestModal
-          batchId={harvestTargetBatch.id}
-          batchLabel={harvestTargetBatch.label}
-          onClose={closeHarvestModal}
-          onSubmitHarvest={submitHarvest}
-        />
-      )}
-      <SettingsPanel isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+          <HarvestModal
+            batchId={harvestTargetBatch.id}
+            batchLabel={harvestTargetBatch.label}
+            onClose={closeHarvestModal}
+            onSubmitHarvest={submitHarvest}
+          />
+       )}
+       {/* Render Settings Panel conditionally */}
+       <SettingsPanel isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
     </>
+    // Removed the outer div as min-h-screen/bg-gray-100 might be better on body/html via index.css
   );
 }
 
+// Export App as default (Essential for VS Code build process)
 export default App;
