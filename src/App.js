@@ -1,26 +1,25 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
 
-// Import Components (assuming they are in ./components/)
+// Import Components
 import Navbar from './components/Navbar';
 import HarvestModal from './components/HarvestModal';
 import SettingsPanel from './components/SettingsPanel';
-import LoginComponent from './components/LoginComponent.jsx'; // Updated: explicitly .jsx extension
-// BatchCard is imported within views that use it, not directly needed in App usually
+import LoginComponent from './components/LoginComponent.jsx'; // Make sure this path and .jsx extension are correct
 
-// Import Views (assuming they are in ./views/)
-import HomepageView from './views/HomepageView';
-import LabView from './views/LabView';
-import IncubationView from './views/IncubationView';
-import GrowRoomView from './views/GrowRoomView';
-import RetirementView from './views/RetirementView';
-import DashboardView from './views/DashboardView';
-import ManageVarietiesView from './views/ManageVarietiesView';
-import ManageSubstratesView from './views/ManageSubstratesView';
-import ManageSuppliersView from './views/ManageSuppliersView';
+// Import Views (assuming they are in ./views/ and use .jsx extension)
+import HomepageView from './views/HomepageView.jsx';
+import LabView from './views/LabView.jsx';
+import IncubationView from './views/IncubationView.jsx';
+import GrowRoomView from './views/GrowRoomView.jsx';
+import RetirementView from './views/RetirementView.jsx';
+import DashboardView from './views/DashboardView.jsx';
+import ManageVarietiesView from './views/ManageVarietiesView.jsx';
+import ManageSubstratesView from './views/ManageSubstratesView.jsx';
+import ManageSuppliersView from './views/ManageSuppliersView.jsx';
 
-// Import Helper Functions (assuming they are in ./utils/)
-// import { formatDate } from './utils/helpers'; // Removed as formatDate is not used in this App.js code directly
+// Import Helper Functions (adjust if you still use formatDate directly here, otherwise can remove)
+// import { formatDate } from './utils/helpers'; // Only include if needed directly in App.js
 
 // Import API Service - PATH UPDATED
 import {
@@ -29,34 +28,24 @@ import {
   updateExistingBatch,
   deleteExistingBatch,
   fetchVarieties,
-} from './api'; // Path updated: changed from './services/api' to './api'
+} from './api'; // Ensure this path is correct: src/api.js
 
 // Main Application Component
 function App() {
-  // State for the current view displayed (internal key like 'Spawn Point')
   const [currentView, setCurrentView] = useState('Spawn Point');
-
-  // State for the list of all batches, loaded from localStorage or initialized empty
-  const [batches, setBatches] = useState([]); // Initialize as empty, data will come from API
-  const [varieties, setVarieties] = useState([]); // State for varieties
+  const [batches, setBatches] = useState([]); // Data will come from API
+  const [varieties, setVarieties] = useState([]); // State for varieties, loaded from API
   const [isHarvestModalOpen, setIsHarvestModalOpen] = useState(false);
   const [harvestTargetBatch, setHarvestTargetBatch] = useState(null);
-  const [isSettingsPanelOpen, setIsSettingsPanel] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // New state for authentication
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // --- Authentication Logic (basic example) ---
+  // --- Authentication and Initial Data Loading ---
   useEffect(() => {
-    // Check if a token exists on component mount
     const token = localStorage.getItem('accessToken');
     if (token) {
       setIsAuthenticated(true);
-      // Optionally, validate the token with the backend if needed
-    }
-  }, []);
-
-  // Effect to load batches and varieties from API
-  useEffect(() => {
-    if (isAuthenticated) {
+      // If authenticated, fetch data
       const loadData = async () => {
         try {
           const fetchedBatches = await fetchBatches();
@@ -69,14 +58,12 @@ function App() {
 
         } catch (error) {
           console.error("Error loading data:", error);
-          // Handle token expiry or other API errors (e.g., redirect to login)
           if (error.message === 'Authentication token not found.' || error.message.includes('Unauthorized')) {
             setIsAuthenticated(false);
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            // alert('Your session has expired. Please log in again.'); // Use a modal or in-app message instead of alert
+            // alert('Your session has expired. Please log in again.'); // Replace with a more elegant UI notification
             console.log('Your session has expired. Please log in again.');
-            // You would typically redirect to a login page here or show a login modal
           }
         }
       };
@@ -84,17 +71,14 @@ function App() {
     }
   }, [isAuthenticated]); // Reload data when authentication status changes
 
-
-  // --- API Integrated Batch Management Functions ---
+  // --- Batch Management Functions (now calling API) ---
   const addBatch = async (newBatchData) => {
     try {
       const createdBatch = await createBatch(newBatchData);
-      // Assuming backend returns the full created batch object with an ID
       setBatches(prevBatches => [createdBatch, ...prevBatches].sort((a, b) => b.id - a.id));
       setCurrentView('Incubation');
     } catch (error) {
       console.error("Error creating batch:", error);
-      // alert("Failed to create batch: " + error.message); // Use a modal or in-app message instead of alert
       console.log("Failed to create batch: " + error.message);
     }
   };
@@ -107,7 +91,6 @@ function App() {
       );
     } catch (error) {
       console.error("Error updating batch:", error);
-      // alert("Failed to update batch: " + error.message); // Use a modal or in-app message instead of alert
       console.log("Failed to update batch: " + error.message);
     }
   };
@@ -117,8 +100,7 @@ function App() {
     if (!batchToMove) return;
 
     const updatedData = { ...batchToMove, stage: newStage };
-    // Add date logic for growRoomEntryDate and retirementDate as per your original logic
-    const todayStr = new Date().toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    const todayStr = new Date().toISOString().split('T')[0];
     if (newStage === 'grow' && batchToMove.stage !== 'grow') updatedData.growRoomEntryDate = todayStr;
     if (newStage === 'retired' && batchToMove.stage !== 'retired') updatedData.retirementDate = todayStr;
     if (newStage === 'incubation') { updatedData.growRoomEntryDate = null; updatedData.retirementDate = null; }
@@ -131,21 +113,18 @@ function App() {
       );
     } catch (error) {
       console.error("Error moving batch:", error);
-      // alert("Failed to move batch: " + error.message); // Use a modal or in-app message instead of alert
       console.log("Failed to move batch: " + error.message);
     }
   };
 
   const deleteBatch = async (batchId) => {
     const batchLabelToDelete = batches.find(b => b.id === batchId)?.batchLabel || batchId;
-    // Using a simple confirm here, but consider a custom modal for better UX
     if (window.confirm(`Are you sure you want to permanently delete batch ${batchLabelToDelete}? This cannot be undone.`)) {
       try {
         await deleteExistingBatch(batchId);
         setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId));
       } catch (error) {
         console.error("Error deleting batch:", error);
-        // alert("Failed to delete batch: " + error.message); // Use a modal or in-app message instead of alert
         console.log("Failed to delete batch: " + error.message);
       }
     }
@@ -175,7 +154,6 @@ function App() {
     const updatedHarvests = [...(Array.isArray(batchToUpdate.harvests) ? batchToUpdate.harvests : []), ...newHarvestEntries];
 
     try {
-      // Assuming your backend supports updating harvests within a batch
       await updateExistingBatch(batchId, { harvests: updatedHarvests });
       setBatches(prevBatches => prevBatches.map(batch => {
         if (batch.id === batchId) {
@@ -186,15 +164,13 @@ function App() {
       closeHarvestModal();
     } catch (error) {
       console.error("Error submitting harvest:", error);
-      // alert("Failed to submit harvest: " + error.message); // Use a modal or in-app message instead of alert
       console.log("Failed to submit harvest: " + error.message);
     }
   };
 
-
   // --- Settings Panel Functions ---
-  const openSettingsPanel = () => { setIsSettingsPanel(true); };
-  const closeSettingsPanel = () => { setIsSettingsPanel(false); };
+  const openSettingsPanel = () => { setIsSettingsPanelOpen(true); };
+  const closeSettingsPanel = () => { setIsSettingsPanelOpen(false); };
 
 
   // --- View Rendering Logic ---
@@ -206,7 +182,7 @@ function App() {
 
     try {
         switch (currentView) {
-            case 'Spawn Point': // Internal name for the state
+            case 'Spawn Point':
                 return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
             case 'Lab':
                 return <LabView onAddBatch={addBatch} />;
@@ -217,25 +193,23 @@ function App() {
             case 'Retirement':
                 return <RetirementView batches={batches} onMoveBatch={moveBatch} />;
             case 'ManageVarieties':
-                return <ManageVarietiesView varieties={varieties} />; // Pass varieties if needed
+                return <ManageVarietiesView varieties={varieties} />;
             case 'ManageSubstrates':
-                return <ManageSubstratesView />; // You'll need API calls for substrates here
+                return <ManageSubstratesView />; // API calls for substrates would go here if implemented
             case 'ManageSuppliers':
-                return <ManageSuppliersView />; // You'll need API calls for suppliers here
+                return <ManageSuppliersView />; // API calls for suppliers would go here if implemented
             case 'Dashboard':
-            default: // Default to Dashboard if view name is unknown
+            default:
                 return <DashboardView batches={batches}/>;
         }
     } catch (error) {
         console.error("Error rendering view:", currentView, error);
-        // Display a user-friendly error message within the UI
         return <div className="p-6 text-red-600 bg-red-100 border border-red-400 rounded-md">Error rendering view: {currentView}. Check console for details.</div>;
     }
   };
 
   // Main App JSX Structure
   return (
-    // Use a React Fragment <>...</> if you don't need an extra div
     <>
       <Navbar
         currentView={currentView}
@@ -244,13 +218,12 @@ function App() {
         isAuthenticated={isAuthenticated}
         onLogout={() => {
           setIsAuthenticated(false);
-          localStorage.clear(); // Clear all tokens
+          localStorage.clear(); // Clear all tokens on logout
         }}
       />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {renderView()}
       </main>
-      {/* Render Harvest Modal conditionally */}
       {isHarvestModalOpen && harvestTargetBatch && (
           <HarvestModal
             batchId={harvestTargetBatch.id}
@@ -259,12 +232,9 @@ function App() {
             onSubmitHarvest={submitHarvest}
           />
        )}
-       {/* Render Settings Panel conditionally */}
        <SettingsPanel isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
     </>
-    // Removed the outer div as min-h-screen/bg-gray-100 might be better on body/html via index.css
   );
 }
 
-// Export App as default (Essential for VS Code build process)
 export default App;
