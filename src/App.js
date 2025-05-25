@@ -5,7 +5,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import HarvestModal from './components/HarvestModal';
 import SettingsPanel from './components/SettingsPanel';
-import LoginComponent from './components/LoginComponent.jsx'; // Updated import for .jsx extension
+import LoginComponent from './components/LoginComponent.jsx'; // Updated: explicitly .jsx extension
+// BatchCard is imported within views that use it, not directly needed in App usually
 
 // Import Views (assuming they are in ./views/)
 import HomepageView from './views/HomepageView';
@@ -18,6 +19,9 @@ import ManageVarietiesView from './views/ManageVarietiesView';
 import ManageSubstratesView from './views/ManageSubstratesView';
 import ManageSuppliersView from './views/ManageSuppliersView';
 
+// Import Helper Functions (assuming they are in ./utils/)
+// import { formatDate } from './utils/helpers'; // Removed as formatDate is not used in this App.js code directly
+
 // Import API Service - PATH UPDATED
 import {
   fetchBatches,
@@ -25,7 +29,6 @@ import {
   updateExistingBatch,
   deleteExistingBatch,
   fetchVarieties,
-  // loginUser // loginUser is now used directly by LoginComponent, no need to import here
 } from './api'; // Path updated: changed from './services/api' to './api'
 
 // Main Application Component
@@ -38,7 +41,7 @@ function App() {
   const [varieties, setVarieties] = useState([]); // State for varieties
   const [isHarvestModalOpen, setIsHarvestModalOpen] = useState(false);
   const [harvestTargetBatch, setHarvestTargetBatch] = useState(null);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isSettingsPanelOpen, setIsSettingsPanel] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false); // New state for authentication
 
   // --- Authentication Logic (basic example) ---
@@ -86,6 +89,7 @@ function App() {
   const addBatch = async (newBatchData) => {
     try {
       const createdBatch = await createBatch(newBatchData);
+      // Assuming backend returns the full created batch object with an ID
       setBatches(prevBatches => [createdBatch, ...prevBatches].sort((a, b) => b.id - a.id));
       setCurrentView('Incubation');
     } catch (error) {
@@ -114,8 +118,9 @@ function App() {
 
     const updatedData = { ...batchToMove, stage: newStage };
     // Add date logic for growRoomEntryDate and retirementDate as per your original logic
-    if (newStage === 'grow' && batchToMove.stage !== 'grow') updatedData.growRoomEntryDate = new Date().toISOString().split('T')[0];
-    if (newStage === 'retired' && batchToMove.stage !== 'retired') updatedData.retirementDate = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    if (newStage === 'grow' && batchToMove.stage !== 'grow') updatedData.growRoomEntryDate = todayStr;
+    if (newStage === 'retired' && batchToMove.stage !== 'retired') updatedData.retirementDate = todayStr;
     if (newStage === 'incubation') { updatedData.growRoomEntryDate = null; updatedData.retirementDate = null; }
     if (newStage === 'grow' && batchToMove.stage === 'retired') updatedData.retirementDate = null;
 
@@ -188,8 +193,9 @@ function App() {
 
 
   // --- Settings Panel Functions ---
-  const openSettingsPanel = () => { setIsSettingsPanelOpen(true); };
-  const closeSettingsPanel = () => { setIsSettingsPanelOpen(false); };
+  const openSettingsPanel = () => { setIsSettingsPanel(true); };
+  const closeSettingsPanel = () => { setIsSettingsPanel(false); };
+
 
   // --- View Rendering Logic ---
   const renderView = () => {
@@ -211,11 +217,11 @@ function App() {
             case 'Retirement':
                 return <RetirementView batches={batches} onMoveBatch={moveBatch} />;
             case 'ManageVarieties':
-                return <ManageVarietiesView varieties={varieties} />;
+                return <ManageVarietiesView varieties={varieties} />; // Pass varieties if needed
             case 'ManageSubstrates':
-                return <ManageSubstratesView />;
+                return <ManageSubstratesView />; // You'll need API calls for substrates here
             case 'ManageSuppliers':
-                return <ManageSuppliersView />;
+                return <ManageSuppliersView />; // You'll need API calls for suppliers here
             case 'Dashboard':
             default: // Default to Dashboard if view name is unknown
                 return <DashboardView batches={batches}/>;
