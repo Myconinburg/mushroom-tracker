@@ -23,7 +23,7 @@ import {
   deleteExistingBatch,
   fetchVarieties,
   loginUser // You'll need a login component to use this
-} from './services/api'; // Make sure the path is correct
+} from './api'; // Make sure the path is correct
 
 function App() {
   const [currentView, setCurrentView] = useState('Spawn Point');
@@ -181,7 +181,7 @@ function App() {
           <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
             <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
             {/* You'll need to create a dedicated Login component */}
-            <p>Please implement a Login component that calls `loginUser` from `./services/api` and sets `isAuthenticated` to true upon success.</p>
+            <p>Please implement a Login component that calls `loginUser` from `./api` and sets `isAuthenticated` to true upon success.</p>
             {/* Example: <Login onLoginSuccess={() => setIsAuthenticated(true)} /> */}
           </div>
         </div>
