@@ -1,5 +1,5 @@
 // src/api.js
-export const API_BASE_URL = 'YOUR_RENDER_BACKEND_URL_HERE'; // Make sure this is correct
+export const API_BASE_URL = 'https://mushtrack-backend.onrender.com'; // Make sure this is correct
 
 // Helper to get auth token
 const getAuthToken = () => {
