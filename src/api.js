@@ -3,7 +3,7 @@ import { toCamelCase, toSnakeCase } from './utils/helpers'; // Make sure helpers
 
 // IMPORTANT: Replace this with your actual Django API base URL if different
 // It's best practice to use an environment variable for this.
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://mushtrack-backend.onrender.com/api/';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://mushtrack-backend.onrender.com/api';
 
 /**
  * A generic request function to handle API calls, including case transformation.
