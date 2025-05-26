@@ -48,26 +48,39 @@ function App() {
       // If authenticated, fetch data
       const loadData = async () => {
         try {
-          const fetchedBatches = await fetchBatches();
-          setBatches(fetchedBatches);
-          console.log("Loaded batches from API:", fetchedBatches);
+          const fetchedBatchesResponse = await fetchBatches();
+          // Assuming fetchBatches might also be paginated or return an array directly
+          setBatches(Array.isArray(fetchedBatchesResponse) ? fetchedBatchesResponse : (fetchedBatchesResponse?.results || []));
+          console.log("Loaded batches from API:", fetchedBatchesResponse);
 
-          const fetchedVarieties = await fetchVarieties();
-          setVarieties(fetchedVarieties);
-          console.log("Loaded varieties from API:", fetchedVarieties);
+          const fetchedVarietiesResponse = await fetchVarieties();
+          // Check if the response has a 'results' property (common for DRF pagination)
+          // Also ensure it's an array. Fallback to an empty array if not.
+          const varietiesData = Array.isArray(fetchedVarietiesResponse)
+                                ? fetchedVarietiesResponse
+                                : (fetchedVarietiesResponse?.results || []);
+          setVarieties(varietiesData);
+          console.log("Loaded varieties from API:", fetchedVarietiesResponse, "Processed varieties:", varietiesData);
 
         } catch (error) {
           console.error("Error loading data:", error);
-          if (error.message === 'Authentication token not found.' || error.message.includes('Unauthorized')) {
+          if (error.message === 'Authentication token not found.' ||
+              error.message.includes('Unauthorized') ||
+              (error.status === 401 && error.data?.code === 'token_not_valid') // Handle token_not_valid from api.js
+            ) {
             setIsAuthenticated(false);
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            // alert('Your session has expired. Please log in again.'); // Replace with a more elegant UI notification
-            console.log('Your session has expired. Please log in again.');
+            console.log('Your session has expired or token is invalid. Please log in again.');
+            // Optionally: redirect to login view if not already there.
+            // setCurrentView('Login'); // Or how you handle login view display
           }
         }
       };
       loadData();
+    } else {
+      // No token, ensure user is not authenticated
+      setIsAuthenticated(false);
     }
   }, [isAuthenticated]); // Reload data when authentication status changes
 
