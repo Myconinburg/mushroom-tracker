@@ -1,13 +1,8 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
-
-// Import Components (assuming they are in ./components/)
 import Navbar from './components/Navbar';
 import HarvestModal from './components/HarvestModal';
 import SettingsPanel from './components/SettingsPanel';
-// BatchCard is imported within views that use it, not directly needed in App usually
-
-// Import Views (assuming they are in ./views/)
 import HomepageView from './views/HomepageView';
 import LabView from './views/LabView';
 import IncubationView from './views/IncubationView';
@@ -17,75 +12,74 @@ import DashboardView from './views/DashboardView';
 import ManageVarietiesView from './views/ManageVarietiesView';
 import ManageSubstratesView from './views/ManageSubstratesView';
 import ManageSuppliersView from './views/ManageSuppliersView';
-
-// Import Helper Functions (assuming they are in ./utils/)
 import { formatDate } from './utils/helpers';
 
-// Main Application Component
 function App() {
-  // State for the current view displayed (internal key like 'Spawn Point')
   const [currentView, setCurrentView] = useState('Spawn Point');
-
-  // State for the list of all batches, loaded from localStorage or initialized empty
   const [batches, setBatches] = useState(() => {
        const savedBatches = localStorage.getItem('mushroomBatches');
        try {
         const parsedBatches = savedBatches ? JSON.parse(savedBatches) : [];
-        console.log("Loaded batches from localStorage:", parsedBatches);
-        // Map over parsed data, ensuring data integrity and providing defaults
         return parsedBatches.map(b => ({
-             id: b?.id || Date.now() + Math.random(), // Ensure ID exists
+             id: b?.id || Date.now() + Math.random(),
              batchLabel: b?.batchLabel || 'Unknown Label',
              variety: b?.variety || 'Unknown Variety',
              inoculationDate: formatDate(b?.inoculationDate) || null,
-             numBags: b?.numBags || 0,
+             numBags: parseInt(b?.numBags || 0, 10),
              unitType: b?.unitType || 'unit',
-             unitWeight: b?.unitWeight || 0,
+             unitWeight: parseFloat(b?.unitWeight || 0),
              substrateRecipe: b?.substrateRecipe || 'Unknown',
              spawnSupplier: b?.spawnSupplier || 'Unknown',
-             contaminatedBags: b?.contaminatedBags || 0,
-             harvests: Array.isArray(b?.harvests) ? b.harvests.map(h => ({ date: formatDate(h?.date) || null, weight: h?.weight || 0 })).filter(h => h.date) : [], // Filter out invalid harvest dates
+             contaminatedBags: parseInt(b?.contaminatedBags || 0, 10),
+             harvests: Array.isArray(b?.harvests) ? b.harvests.map(h => ({ date: formatDate(h?.date) || null, weight: parseFloat(h?.weight || 0) })).filter(h => h.date) : [],
              notes: b?.notes || '',
              stage: b?.stage || 'incubation',
              colonisationCompleteDate: formatDate(b?.colonisationCompleteDate) || null,
              growRoomEntryDate: formatDate(b?.growRoomEntryDate) || null,
              retirementDate: formatDate(b?.retirementDate) || null,
+             parentBatchId_lineage: b?.parentBatchId_lineage || null,
          }));
       } catch (e) {
           console.error("Error parsing saved batches from localStorage:", e);
-          localStorage.removeItem('mushroomBatches'); // Clear corrupted data if parsing fails
-          return []; // Return empty array if parsing fails
+          localStorage.removeItem('mushroomBatches');
+          return [];
       }
   });
 
-  // State for controlling the Harvest Modal visibility
   const [isHarvestModalOpen, setIsHarvestModalOpen] = useState(false);
-  // State to store the ID and label of the batch targeted by the Harvest Modal
   const [harvestTargetBatch, setHarvestTargetBatch] = useState(null);
-  // State for controlling the Settings Panel visibility
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
 
-  // Effect to save the 'batches' state to localStorage whenever it changes
   useEffect(() => {
     try {
-        // Filter out any potentially problematic temporary states before saving
-        const batchesToSave = batches.filter(b => b.id); // Basic check
+        const batchesToSave = batches.filter(b => b.id);
         localStorage.setItem('mushroomBatches', JSON.stringify(batchesToSave));
-        // console.log("Batches saved to localStorage."); // Optional: uncomment for debugging saves
     } catch (e) {
         console.error("Error saving batches to localStorage:", e);
     }
-  }, [batches]); // Dependency array ensures this runs only when 'batches' changes
+  }, [batches]);
 
-  // --- Batch Management Functions ---
   const addBatch = (newBatchData) => {
     setBatches(prevBatches => {
-        const newState = [
-            ...prevBatches,
-            { ...newBatchData, id: Date.now() } // Assign a unique ID based on timestamp
-        ].sort((a, b) => b.id - a.id); // Sort newest first
-        // Use functional update to ensure navigation happens after state is set
-        setCurrentView('Incubation'); // Navigate immediately after setting state
+        const parsedNumBags = parseInt(newBatchData.numBags, 10);
+        const parsedUnitWeight = parseFloat(newBatchData.unitWeight);
+        const batchWithDefaults = {
+            ...newBatchData,
+            id: Date.now(),
+            numBags: isNaN(parsedNumBags) ? 0 : parsedNumBags,
+            unitWeight: isNaN(parsedUnitWeight) ? 0 : parsedUnitWeight,
+            inoculationDate: formatDate(newBatchData.inoculationDate) || formatDate(new Date()),
+            stage: 'incubation',
+            contaminatedBags: 0,
+            harvests: [],
+            notes: newBatchData.notes || '',
+            colonisationCompleteDate: null,
+            growRoomEntryDate: null,
+            retirementDate: null,
+            parentBatchId_lineage: null,
+        };
+        const newState = [ ...prevBatches, batchWithDefaults ].sort((a, b) => b.id - a.id);
+        setCurrentView('Incubation');
         return newState;
     });
    };
@@ -93,26 +87,65 @@ function App() {
   const moveBatch = (batchId, newStage) => { setBatches(prevBatches => prevBatches.map(batch => { if (batch.id === batchId) { const updatedBatch = { ...batch, stage: newStage }; const todayStr = formatDate(new Date()); if (newStage === 'grow' && batch.stage !== 'grow') updatedBatch.growRoomEntryDate = todayStr; if (newStage === 'retired' && batch.stage !== 'retired') updatedBatch.retirementDate = todayStr; if (newStage === 'incubation') { updatedBatch.growRoomEntryDate = null; updatedBatch.retirementDate = null; } if (newStage === 'grow' && batch.stage === 'retired') updatedBatch.retirementDate = null; return updatedBatch; } return batch; }) ); };
   const deleteBatch = (batchId) => { const batchLabelToDelete = batches.find(b=>b.id===batchId)?.batchLabel || batchId; if (window.confirm(`Are you sure you want to permanently delete batch ${batchLabelToDelete}? This cannot be undone.`)) { setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId)); } };
 
-  // --- Harvest Modal Functions ---
+  const splitBatchForGrowRoom = (parentBatchId, splitOffData) => {
+    setBatches(prevBatches => {
+      const parentBatch = prevBatches.find(b => b.id === parentBatchId);
+      if (!parentBatch) {
+        console.error("Parent batch not found for splitting:", parentBatchId);
+        alert("Error: Original batch not found. Could not complete the move.");
+        return prevBatches;
+      }
+      const quantityToMove = parseInt(splitOffData.quantity, 10);
+      if (isNaN(quantityToMove) || quantityToMove <= 0 || quantityToMove > parentBatch.numBags) {
+        console.error("Invalid quantity to move:", quantityToMove);
+        alert("Error: Invalid quantity specified for the move.");
+        return prevBatches;
+      }
+      const updatedParentBatch = {
+        ...parentBatch,
+        numBags: parentBatch.numBags - quantityToMove,
+        notes: `${parentBatch.notes || ''}\nSplit off ${quantityToMove} units on ${formatDate(new Date())}.`.trim(),
+      };
+      const newChildBatchId = Date.now() + 1; // Add 1 to try and ensure more uniqueness if called rapidly
+      const newChildBatch = {
+        ...parentBatch,
+        id: newChildBatchId,
+        batchLabel: `${parentBatch.batchLabel}-G${(Math.random().toString(36).substr(2, 3)).toUpperCase()}`,
+        numBags: quantityToMove,
+        stage: 'grow',
+        colonisationCompleteDate: formatDate(splitOffData.colonisationDate),
+        growRoomEntryDate: formatDate(new Date()),
+        inoculationDate: parentBatch.inoculationDate,
+        parentBatchId_lineage: parentBatchId,
+        harvests: [],
+        contaminatedBags: 0,
+        notes: `Split from batch ${parentBatch.batchLabel} (ID: ${parentBatchId}). ${splitOffData.notes || ''}`.trim(),
+        retirementDate: null,
+      };
+      const updatedBatches = prevBatches.map(b =>
+        b.id === parentBatchId ? updatedParentBatch : b
+      );
+      updatedBatches.push(newChildBatch);
+      return updatedBatches.sort((a, b) => b.id - a.id);
+    });
+  };
+
   const openHarvestModal = (batchId) => { const target = batches.find(b => b.id === batchId); if (target) { setHarvestTargetBatch({ id: target.id, label: target.batchLabel }); setIsHarvestModalOpen(true); } else { console.error("Target batch not found for harvest modal:", batchId); } };
   const closeHarvestModal = () => { setIsHarvestModalOpen(false); setHarvestTargetBatch(null); };
   const submitHarvest = (batchId, harvestWeights) => { const today = formatDate(new Date()); const newHarvestEntries = harvestWeights.map(weight => ({ date: today, weight: parseFloat(weight) })); setBatches(prevBatches => prevBatches.map(batch => { if (batch.id === batchId) { const existingHarvests = Array.isArray(batch.harvests) ? batch.harvests : []; return { ...batch, harvests: [...existingHarvests, ...newHarvestEntries] }; } return batch; }) ); closeHarvestModal(); };
 
-  // --- Settings Panel Functions ---
   const openSettingsPanel = () => { setIsSettingsPanelOpen(true); };
   const closeSettingsPanel = () => { setIsSettingsPanelOpen(false); };
 
-
-  // --- View Rendering Logic ---
   const renderView = () => {
     try {
         switch (currentView) {
-            case 'Spawn Point': // Internal name for the state
+            case 'Spawn Point':
                 return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
             case 'Lab':
                 return <LabView onAddBatch={addBatch} />;
             case 'Incubation':
-                return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} />;
+                return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} onSplitBatch={splitBatchForGrowRoom} />;
             case 'Grow Room':
                 return <GrowRoomView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onOpenHarvestModal={openHarvestModal} />;
             case 'Retirement':
@@ -124,19 +157,16 @@ function App() {
             case 'ManageSuppliers':
                 return <ManageSuppliersView />;
             case 'Dashboard':
-            default: // Default to Dashboard if view name is unknown
+            default:
                 return <DashboardView batches={batches}/>;
         }
     } catch (error) {
         console.error("Error rendering view:", currentView, error);
-        // Display a user-friendly error message within the UI
         return <div className="p-6 text-red-600 bg-red-100 border border-red-400 rounded-md">Error rendering view: {currentView}. Check console for details.</div>;
     }
   };
 
-  // Main App JSX Structure
   return (
-    // Use a React Fragment <>...</> if you don't need an extra div
     <>
       <Navbar
         currentView={currentView}
@@ -149,6 +179,7 @@ function App() {
       {/* Render Harvest Modal conditionally */}
       {isHarvestModalOpen && harvestTargetBatch && (
           <HarvestModal
+            isOpen={isHarvestModalOpen} // <-- THE CRUCIAL PROP
             batchId={harvestTargetBatch.id}
             batchLabel={harvestTargetBatch.label}
             onClose={closeHarvestModal}
@@ -158,9 +189,7 @@ function App() {
        {/* Render Settings Panel conditionally */}
        <SettingsPanel isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
     </>
-    // Removed the outer div as min-h-screen/bg-gray-100 might be better on body/html via index.css
   );
 }
 
-// Export App as default (Essential for VS Code build process)
 export default App;
