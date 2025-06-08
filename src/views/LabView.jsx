@@ -1,103 +1,110 @@
 // src/views/LabView.jsx
 import React, { useState, useEffect } from 'react';
-import { formatDate, getAbbreviation } from '../utils/helpers'; // Assuming getAbbreviation is still needed
+
+// Import helper functions
+// Adjust the path based on your file structure (e.g., ../utils/helpers)
+import { getAbbreviation, formatDate } from '../utils/helpers';
+
+// Import necessary icons from your single icons file
+// Adjust the path based on your file structure (e.g., ../components/icons)
 import { LabIcon } from '../components/icons';
 
-function LabView({ onAddBatch, availableVarieties = [] }) { // Added availableVarieties prop
+function LabView({ onAddBatch }) {
   // State for form inputs
-  // Initialize varietyId with the ID of the first available variety, or empty string
-  const [varietyId, setVarietyId] = useState(availableVarieties.length > 0 ? availableVarieties[0].id : '');
-  const [inoculationDate, setInoculationDate] = useState(formatDate(new Date()));
+  const [variety, setVariety] = useState('Blue Oyster'); // Default value
+  const [inoculationDate, setInoculationDate] = useState(formatDate(new Date())); // Default to today
   const [numUnits, setNumUnits] = useState('');
-  const [unitType, setUnitType] = useState('bag');
+  const [unitType, setUnitType] = useState('bag'); // Default value
   const [unitWeight, setUnitWeight] = useState('');
   const [substrateRecipe, setSubstrateRecipe] = useState('');
   const [spawnSupplier, setSpawnSupplier] = useState('');
   const [notes, setNotes] = useState('');
-  const [batchLabel, setBatchLabel] = useState('');
+  const [batchLabel, setBatchLabel] = useState(''); // Auto-generated label
 
-  // Effect to update batch label
+  // Effect to update batch label automatically when variety or date changes
   useEffect(() => {
-    const selectedVarietyObj = availableVarieties.find(v => v.id === parseInt(varietyId));
-    const varietyNameForLabel = selectedVarietyObj ? selectedVarietyObj.name : 'Unknown';
-
-    if (!varietyNameForLabel || !inoculationDate) {
-      setBatchLabel("");
-      return;
-    }
-    try {
-      const date = new Date(inoculationDate + 'T00:00:00');
-      if (isNaN(date.getTime())) {
-        setBatchLabel("Invalid Date");
+      // Only generate label if variety and date are selected
+      if (!variety || !inoculationDate) {
+        setBatchLabel(""); // Clear label if inputs are missing
         return;
       }
-      const abbrev = getAbbreviation(varietyNameForLabel);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = String(date.getFullYear()).slice(-2);
-      const label = `${abbrev}${day}/${month}/${year}`;
-      setBatchLabel(label);
-    } catch (e) {
-      console.error("Error formatting date for batch label:", e);
-      setBatchLabel("Error");
-    }
-  }, [varietyId, inoculationDate, availableVarieties]);
+      try {
+          // Ensure date is parsed correctly, even if user types manually
+          const date = new Date(inoculationDate + 'T00:00:00'); // Use T00:00:00 to avoid timezone shifts
+          if (isNaN(date.getTime())) { // Check if the parsed date is valid
+              setBatchLabel("Invalid Date"); // Indicate error in label
+              return;
+          }
+          const abbrev = getAbbreviation(variety); // Use imported helper
+          // Format: ABDD/MM/YY
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+          const year = String(date.getFullYear()).slice(-2);
+          const label = `${abbrev}${day}/${month}/${year}`;
+          setBatchLabel(label);
+      } catch (e) {
+          console.error("Error formatting date for batch label:", e);
+          setBatchLabel("Error"); // Indicate error in label
+      }
+  }, [variety, inoculationDate]); // Dependencies: run effect when these change
 
-  // Set initial varietyId when availableVarieties loads/changes and varietyId is not yet set or invalid
-  useEffect(() => {
-    if (availableVarieties.length > 0 && (!varietyId || !availableVarieties.find(v => v.id === parseInt(varietyId)))) {
-        setVarietyId(availableVarieties[0].id.toString()); // Ensure it's a string for the select value
-    }
-  }, [availableVarieties, varietyId]);
-
-
+  // Handle form submission
   const handleSubmit = (event) => {
-    event.preventDefault();
-    const units = parseInt(numUnits);
-    const weight = parseFloat(unitWeight);
-    const parsedVarietyId = parseInt(varietyId);
+      event.preventDefault(); // Prevent default form submission behavior
+      const units = parseInt(numUnits);
+      const weight = parseFloat(unitWeight);
 
-    if (!parsedVarietyId || !inoculationDate || !units || units <= 0 || !batchLabel || batchLabel === "Error" || batchLabel === "Invalid Date" || !unitType || !unitWeight || weight <= 0 || !substrateRecipe || !spawnSupplier) {
-      alert("Please complete all required fields correctly (Variety, Date, Number of Units > 0, Unit Type, Unit Weight > 0, Substrate, Spawn Supplier). Ensure date is valid.");
-      return;
-    }
+      // --- Input Validation ---
+      if (!variety || !inoculationDate || !units || units <= 0 || !batchLabel || batchLabel === "Error" || batchLabel === "Invalid Date" || !unitType || !unitWeight || weight <= 0 || !substrateRecipe || !spawnSupplier) {
+        alert("Please complete all required fields correctly (Variety, Date, Number of Units > 0, Unit Type, Unit Weight > 0, Substrate, Spawn Supplier). Ensure date is valid.");
+        return; // Stop submission if validation fails
+      }
 
-    const selectedVarietyObj = availableVarieties.find(v => v.id === parsedVarietyId);
+      // --- Create New Batch Object ---
+      const newBatch = {
+        batchLabel, // Auto-generated
+        variety,
+        inoculationDate,
+        numBags: units, // Use the state variable name
+        unitType,
+        unitWeight: weight, // Use the parsed weight
+        substrateRecipe,
+        spawnSupplier,
+        contaminatedBags: 0, // Default value
+        harvests: [], // Default value
+        notes,
+        stage: "incubation", // Initial stage
+        colonisationCompleteDate: null, // Default value
+        growRoomEntryDate: null, // Default value
+        retirementDate: null // Default value
+      };
 
-    const newBatch = {
-      batchLabel,
-      varietyId: parsedVarietyId, // Send the ID
-      // Include variety_name if your backend also wants to store/show it directly on the batch, otherwise it's looked up via FK
-      // varietyName: selectedVarietyObj ? selectedVarietyObj.name : 'Unknown', // Optional: if backend wants name too
-      inoculationDate,
-      numBags: units,
-      unitType,
-      unitWeight: weight,
-      substrateRecipe,
-      spawnSupplier,
-      contaminatedBags: 0,
-      harvests: [],
-      notes,
-      stage: "incubation",
-      colonisationCompleteDate: null,
-      growRoomEntryDate: null,
-      retirementDate: null
-    };
-    console.log('LabView newBatch being sent to onAddBatch:', newBatch);
-    onAddBatch(newBatch); // This will go to App.js, then to api.js which converts to snake_case
+      // Call the function passed from App.js to add the batch and handle navigation
+      onAddBatch(newBatch);
+      alert("✅ Batch created and moved to Incubation Room!"); // User feedback
 
-    // Clear form
-    if (availableVarieties.length > 0) setVarietyId(availableVarieties[0].id.toString()); else setVarietyId('');
-    setInoculationDate(formatDate(new Date()));
-    setNumUnits('');
-    setUnitType('bag');
-    setUnitWeight('');
-    setSubstrateRecipe('');
-    setSpawnSupplier('');
-    setNotes('');
+      // --- Clear Form Fields ---
+        setVariety('Blue Oyster');
+        setInoculationDate(formatDate(new Date()));
+        setNumUnits('');
+        setUnitType('bag');
+        setUnitWeight('');
+        setSubstrateRecipe('');
+        setSpawnSupplier('');
+        setNotes('');
+        // Batch label will auto-update via useEffect
   };
 
+  // --- Options for Dropdowns ---
+  // TODO: Later, these will come from state managed in App.js
+  const varietyOptions = [
+    "Blue Oyster", "White Oyster", "Grey Oyster", "Yellow Oyster",
+    "Black Pearl", "King Oyster", "Lions Mane", "Shiitake",
+    "Piopinno", "Maitake", "Reishi", "Turkey Tail"
+  ];
   const unitTypeOptions = ["bag", "block", "bucket", "jar", "other"];
+
+  // --- Tailwind Styles ---
   const labelStyle = "block text-sm font-medium text-gray-700 mb-1";
   const inputBaseStyle = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm";
   const inputStyle = `${inputBaseStyle} text-gray-900`;
@@ -106,29 +113,23 @@ function LabView({ onAddBatch, availableVarieties = [] }) { // Added availableVa
   const buttonStyle = "w-full mt-6 p-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition duration-150 ease-in-out text-lg";
 
   return (
+    // Centered container for the form
     <div className="flex justify-center py-8 px-4">
+      {/* Form card with styling */}
       <div className="bg-white p-6 md:p-8 rounded-lg shadow-md border border-gray-200 w-full max-w-xl">
         <h2 className="text-xl md:text-2xl font-semibold mb-6 text-gray-900 text-center flex items-center justify-center">
-          <LabIcon /> New Batch
+          <LabIcon /> New Batch {/* Use imported icon */}
         </h2>
+        {/* Form with vertical spacing between fields */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="variety" className={labelStyle}>Variety</label>
-            <select
-                id="variety"
-                value={varietyId} // Value is now the ID
-                onChange={(e) => setVarietyId(e.target.value)}
-                className={selectStyle}
-                required
-            >
-              <option value="" disabled>Select a variety</option>
-              {availableVarieties.map(v => (
-                <option key={v.id} value={v.id}>{v.name}</option> // Use v.id for value, v.name for display
-              ))}
-            </select>
-          </div>
-          {/* ... rest of your form inputs ... */}
-           <div>
+            {/* Each input field gets its own div */}
+            <div>
+                <label htmlFor="variety" className={labelStyle}>Variety</label>
+                <select id="variety" value={variety} onChange={(e) => setVariety(e.target.value)} className={selectStyle} required>
+                    {varietyOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+            </div>
+            <div>
                 <label htmlFor="inoculationDate" className={labelStyle}>Inoculation Date</label>
                 <input type="date" id="inoculationDate" value={inoculationDate} onChange={(e) => setInoculationDate(e.target.value)} max={formatDate(new Date())} className={inputStyle} style={{ colorScheme: 'light' }} required/>
             </div>
@@ -162,6 +163,7 @@ function LabView({ onAddBatch, availableVarieties = [] }) { // Added availableVa
                 <label htmlFor="batchLabel" className={labelStyle}>Batch Label (Auto-generated)</label>
                 <input type="text" id="batchLabel" value={batchLabel} readOnly className={readOnlyInputStyle}/>
             </div>
+          {/* Submit Button */}
           <div>
             <button type="submit" className={buttonStyle}>
               Create Batch
@@ -173,4 +175,4 @@ function LabView({ onAddBatch, availableVarieties = [] }) { // Added availableVa
   );
 }
 
-export default LabView;
+export default LabView; // Export the component

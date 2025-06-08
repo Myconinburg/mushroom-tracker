@@ -1,10 +1,12 @@
 // src/utils/helpers.js
 
 /**
- * Generates a short abbreviation for a given mushroom variety name.
- * Falls back to the first two letters if the variety is not in the predefined map.
- * @param {string} variety - The full name of the mushroom variety.
- * @returns {string} A 2-3 letter abbreviation or '??' if input is invalid.
+ * Gets the abbreviation for a given mushroom variety name by looking it up
+ * in the provided list of variety objects. Falls back to the first two letters
+ * if the variety name is not found in the list.
+ * @param {string} varietyName - The full name of the mushroom variety.
+ * @param {Array<{name: string, abbr: string}>} availableVarieties - The array of variety objects.
+ * @returns {string} A 2-letter uppercase abbreviation or '??' if input is invalid.
  */
 export function getAbbreviation(variety) {
     const map = {

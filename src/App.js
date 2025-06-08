@@ -1,192 +1,103 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
 
-// Import Components
+// Import Components (assuming they are in ./components/)
 import Navbar from './components/Navbar';
 import HarvestModal from './components/HarvestModal';
 import SettingsPanel from './components/SettingsPanel';
-import LoginComponent from './components/LoginComponent.jsx'; // Make sure this path and .jsx extension are correct
+// BatchCard is imported within views that use it, not directly needed in App usually
 
-// Import Views (assuming they are in ./views/ and use .jsx extension)
-import HomepageView from './views/HomepageView.jsx';
-import LabView from './views/LabView.jsx';
-import IncubationView from './views/IncubationView.jsx';
-import GrowRoomView from './views/GrowRoomView.jsx';
-import RetirementView from './views/RetirementView.jsx';
-import DashboardView from './views/DashboardView.jsx';
-import ManageVarietiesView from './views/ManageVarietiesView.jsx';
-import ManageSubstratesView from './views/ManageSubstratesView.jsx';
-import ManageSuppliersView from './views/ManageSuppliersView.jsx';
+// Import Views (assuming they are in ./views/)
+import HomepageView from './views/HomepageView';
+import LabView from './views/LabView';
+import IncubationView from './views/IncubationView';
+import GrowRoomView from './views/GrowRoomView';
+import RetirementView from './views/RetirementView';
+import DashboardView from './views/DashboardView';
+import ManageVarietiesView from './views/ManageVarietiesView';
+import ManageSubstratesView from './views/ManageSubstratesView';
+import ManageSuppliersView from './views/ManageSuppliersView';
 
-// Import Helper Functions (adjust if you still use formatDate directly here, otherwise can remove)
-// import { formatDate } from './utils/helpers'; // Only include if needed directly in App.js
+// Import Helper Functions (assuming they are in ./utils/)
+import { formatDate } from './utils/helpers';
 
-// Import API Service - PATH UPDATED
-import {
-  fetchBatches,
-  createBatch,
-  updateExistingBatch,
-  deleteExistingBatch,
-  fetchVarieties,
-} from './api'; // Ensure this path is correct: src/api.js
-
-// Main Application Component
 function App() {
   const [currentView, setCurrentView] = useState('Spawn Point');
-  const [batches, setBatches] = useState([]); // Data will come from API
-  const [varieties, setVarieties] = useState([]); // State for varieties, loaded from API
+
+  // State for the list of all batches, loaded from localStorage or initialized empty
+  const [batches, setBatches] = useState(() => {
+       const savedBatches = localStorage.getItem('mushroomBatches');
+       try {
+        const parsedBatches = savedBatches ? JSON.parse(savedBatches) : [];
+        console.log("Loaded batches from localStorage:", parsedBatches);
+        // Map over parsed data, ensuring data integrity and providing defaults
+        return parsedBatches.map(b => ({
+             id: b?.id || Date.now() + Math.random(), // Ensure ID exists
+             batchLabel: b?.batchLabel || 'Unknown Label',
+             variety: b?.variety || 'Unknown Variety',
+             inoculationDate: formatDate(b?.inoculationDate) || null,
+             numBags: b?.numBags || 0,
+             unitType: b?.unitType || 'unit',
+             unitWeight: b?.unitWeight || 0,
+             substrateRecipe: b?.substrateRecipe || 'Unknown',
+             spawnSupplier: b?.spawnSupplier || 'Unknown',
+             contaminatedBags: b?.contaminatedBags || 0,
+             harvests: Array.isArray(b?.harvests) ? b.harvests.map(h => ({ date: formatDate(h?.date) || null, weight: h?.weight || 0 })).filter(h => h.date) : [], // Filter out invalid harvest dates
+             notes: b?.notes || '',
+             stage: b?.stage || 'incubation',
+             colonisationCompleteDate: formatDate(b?.colonisationCompleteDate) || null,
+             growRoomEntryDate: formatDate(b?.growRoomEntryDate) || null,
+             retirementDate: formatDate(b?.retirementDate) || null,
+         }));
+      } catch (e) {
+          console.error("Error parsing saved batches from localStorage:", e);
+          localStorage.removeItem('mushroomBatches'); // Clear corrupted data if parsing fails
+          return []; // Return empty array if parsing fails
+      }
+  });
+
+  // State for controlling the Harvest Modal visibility
   const [isHarvestModalOpen, setIsHarvestModalOpen] = useState(false);
   const [harvestTargetBatch, setHarvestTargetBatch] = useState(null);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // --- Authentication and Initial Data Loading ---
+  // Effect to save the 'batches' state to localStorage whenever it changes
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      setIsAuthenticated(true);
-      // If authenticated, fetch data
-      const loadData = async () => {
-        try {
-          const fetchedBatchesResponse = await fetchBatches();
-          // Assuming fetchBatches might also be paginated or return an array directly
-          setBatches(Array.isArray(fetchedBatchesResponse) ? fetchedBatchesResponse : (fetchedBatchesResponse?.results || []));
-          console.log("Loaded batches from API:", fetchedBatchesResponse);
-
-          const fetchedVarietiesResponse = await fetchVarieties();
-          // Check if the response has a 'results' property (common for DRF pagination)
-          // Also ensure it's an array. Fallback to an empty array if not.
-          const varietiesData = Array.isArray(fetchedVarietiesResponse)
-                                ? fetchedVarietiesResponse
-                                : (fetchedVarietiesResponse?.results || []);
-          setVarieties(varietiesData);
-          console.log("Loaded varieties from API:", fetchedVarietiesResponse, "Processed varieties:", varietiesData);
-
-        } catch (error) {
-          console.error("Error loading data:", error);
-          if (error.message === 'Authentication token not found.' ||
-              error.message.includes('Unauthorized') ||
-              (error.status === 401 && error.data?.code === 'token_not_valid') // Handle token_not_valid from api.js
-            ) {
-            setIsAuthenticated(false);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            console.log('Your session has expired or token is invalid. Please log in again.');
-            // Optionally: redirect to login view if not already there.
-            // setCurrentView('Login'); // Or how you handle login view display
-          }
-        }
-      };
-      loadData();
-    } else {
-      // No token, ensure user is not authenticated
-      setIsAuthenticated(false);
-    }
-  }, [isAuthenticated]); // Reload data when authentication status changes
-
-  // --- Batch Management Functions (now calling API) ---
-  const addBatch = async (newBatchData) => {
     try {
-      const createdBatch = await createBatch(newBatchData);
-      setBatches(prevBatches => [createdBatch, ...prevBatches].sort((a, b) => b.id - a.id));
-      setCurrentView('Incubation');
-    } catch (error) {
-      console.error("Error creating batch:", error);
-      console.log("Failed to create batch: " + error.message);
+        // Filter out any potentially problematic temporary states before saving
+        const batchesToSave = batches.filter(b => b.id); // Basic check
+        localStorage.setItem('mushroomBatches', JSON.stringify(batchesToSave));
+        // console.log("Batches saved to localStorage."); // Optional: uncomment for debugging saves
+    } catch (e) {
+        console.error("Error saving batches to localStorage:", e);
     }
-  };
+  }, [batches]); // Dependency array ensures this runs only when 'batches' changes
 
-  const updateBatch = async (batchId, updatedData) => {
-    try {
-      const updatedBatch = await updateExistingBatch(batchId, updatedData);
-      setBatches(prevBatches =>
-        prevBatches.map(batch => (batch.id === batchId ? updatedBatch : batch))
-      );
-    } catch (error) {
-      console.error("Error updating batch:", error);
-      console.log("Failed to update batch: " + error.message);
-    }
-  };
-
-  const moveBatch = async (batchId, newStage) => {
-    const batchToMove = batches.find(b => b.id === batchId);
-    if (!batchToMove) return;
-
-    const updatedData = { ...batchToMove, stage: newStage };
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (newStage === 'grow' && batchToMove.stage !== 'grow') updatedData.growRoomEntryDate = todayStr;
-    if (newStage === 'retired' && batchToMove.stage !== 'retired') updatedData.retirementDate = todayStr;
-    if (newStage === 'incubation') { updatedData.growRoomEntryDate = null; updatedData.retirementDate = null; }
-    if (newStage === 'grow' && batchToMove.stage === 'retired') updatedData.retirementDate = null;
-
-    try {
-      await updateExistingBatch(batchId, updatedData);
-      setBatches(prevBatches =>
-        prevBatches.map(batch => (batch.id === batchId ? { ...batch, ...updatedData } : batch))
-      );
-    } catch (error) {
-      console.error("Error moving batch:", error);
-      console.log("Failed to move batch: " + error.message);
-    }
-  };
-
-  const deleteBatch = async (batchId) => {
-    const batchLabelToDelete = batches.find(b => b.id === batchId)?.batchLabel || batchId;
-    if (window.confirm(`Are you sure you want to permanently delete batch ${batchLabelToDelete}? This cannot be undone.`)) {
-      try {
-        await deleteExistingBatch(batchId);
-        setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId));
-      } catch (error) {
-        console.error("Error deleting batch:", error);
-        console.log("Failed to delete batch: " + error.message);
-      }
-    }
-  };
+  // --- Batch Management Functions ---
+  const addBatch = (newBatchData) => {
+    setBatches(prevBatches => {
+        const newState = [
+            ...prevBatches,
+            { ...newBatchData, id: Date.now() } // Assign a unique ID based on timestamp
+        ].sort((a, b) => b.id - a.id); // Sort newest first
+        // Use functional update to ensure navigation happens after state is set
+        setCurrentView('Incubation'); // Navigate immediately after setting state
+        return newState;
+    });
+   };
+  const updateBatch = (batchId, updatedData) => { setBatches(prevBatches => prevBatches.map(batch => batch.id === batchId ? { ...batch, ...updatedData } : batch) ); };
+  const moveBatch = (batchId, newStage) => { setBatches(prevBatches => prevBatches.map(batch => { if (batch.id === batchId) { const updatedBatch = { ...batch, stage: newStage }; const todayStr = formatDate(new Date()); if (newStage === 'grow' && batch.stage !== 'grow') updatedBatch.growRoomEntryDate = todayStr; if (newStage === 'retired' && batch.stage !== 'retired') updatedBatch.retirementDate = todayStr; if (newStage === 'incubation') { updatedBatch.growRoomEntryDate = null; updatedBatch.retirementDate = null; } if (newStage === 'grow' && batch.stage === 'retired') updatedBatch.retirementDate = null; return updatedBatch; } return batch; }) ); };
+  const deleteBatch = (batchId) => { const batchLabelToDelete = batches.find(b=>b.id===batchId)?.batchLabel || batchId; if (window.confirm(`Are you sure you want to permanently delete batch ${batchLabelToDelete}? This cannot be undone.`)) { setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId)); } };
 
   // --- Harvest Modal Functions ---
-  const openHarvestModal = (batchId) => {
-    const target = batches.find(b => b.id === batchId);
-    if (target) {
-      setHarvestTargetBatch({ id: target.id, label: target.batchLabel });
-      setIsHarvestModalOpen(true);
-    } else {
-      console.error("Target batch not found for harvest modal:", batchId);
-    }
-  };
+  const openHarvestModal = (batchId) => { const target = batches.find(b => b.id === batchId); if (target) { setHarvestTargetBatch({ id: target.id, label: target.batchLabel }); setIsHarvestModalOpen(true); } else { console.error("Target batch not found for harvest modal:", batchId); } };
+  const closeHarvestModal = () => { setIsHarvestModalOpen(false); setHarvestTargetBatch(null); };
+  const submitHarvest = (batchId, harvestWeights) => { const today = formatDate(new Date()); const newHarvestEntries = harvestWeights.map(weight => ({ date: today, weight: parseFloat(weight) })); setBatches(prevBatches => prevBatches.map(batch => { if (batch.id === batchId) { const existingHarvests = Array.isArray(batch.harvests) ? batch.harvests : []; return { ...batch, harvests: [...existingHarvests, ...newHarvestEntries] }; } return batch; }) ); closeHarvestModal(); };
 
-  const closeHarvestModal = () => {
-    setIsHarvestModalOpen(false);
-    setHarvestTargetBatch(null);
-  };
-
-  const submitHarvest = async (batchId, harvestWeights) => {
-    const newHarvestEntries = harvestWeights.map(weight => ({ date: new Date().toISOString().split('T')[0], weight: parseFloat(weight) }));
-    const batchToUpdate = batches.find(b => b.id === batchId);
-    if (!batchToUpdate) return;
-
-    const updatedHarvests = [...(Array.isArray(batchToUpdate.harvests) ? batchToUpdate.harvests : []), ...newHarvestEntries];
-
-    try {
-      await updateExistingBatch(batchId, { harvests: updatedHarvests });
-      setBatches(prevBatches => prevBatches.map(batch => {
-        if (batch.id === batchId) {
-          return { ...batch, harvests: updatedHarvests };
-        }
-        return batch;
-      }));
-      closeHarvestModal();
-    } catch (error) {
-      console.error("Error submitting harvest:", error);
-      console.log("Failed to submit harvest: " + error.message);
-    }
-  };
-
-  // --- Settings Panel Functions ---
   const openSettingsPanel = () => { setIsSettingsPanelOpen(true); };
   const closeSettingsPanel = () => { setIsSettingsPanelOpen(false); };
 
-
-  // --- View Rendering Logic ---
   const renderView = () => {
     // Display Login component if not authenticated
     if (!isAuthenticated) {
@@ -200,7 +111,7 @@ function App() {
             case 'Lab':
                 return <LabView onAddBatch={addBatch} />;
             case 'Incubation':
-                return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} />;
+                return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} onSplitBatch={splitBatchForGrowRoom} />;
             case 'Grow Room':
                 return <GrowRoomView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onOpenHarvestModal={openHarvestModal} />;
             case 'Retirement':
@@ -221,7 +132,6 @@ function App() {
     }
   };
 
-  // Main App JSX Structure
   return (
     <>
       <Navbar
@@ -239,6 +149,7 @@ function App() {
       </main>
       {isHarvestModalOpen && harvestTargetBatch && (
           <HarvestModal
+            isOpen={isHarvestModalOpen} // <-- THE CRUCIAL PROP
             batchId={harvestTargetBatch.id}
             batchLabel={harvestTargetBatch.label}
             onClose={closeHarvestModal}
