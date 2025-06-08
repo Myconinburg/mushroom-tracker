@@ -198,7 +198,7 @@ function App() {
             case 'Spawn Point':
                 return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
             case 'Lab':
-                return <LabView onAddBatch={addBatch} />;
+              return <LabView onAddBatch={addBatch} availableVarieties={varieties} />;
             case 'Incubation':
                 return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} />;
             case 'Grow Room':
