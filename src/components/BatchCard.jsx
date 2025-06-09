@@ -72,7 +72,7 @@ function BatchCard({ batch, onUpdateBatch, onMoveBatch, onDeleteBatch, onOpenHar
             {/* Card Content Area */}
             <div className="flex-grow"> {/* Allow content to grow */}
                 <strong className="text-base text-orange-600 block mb-1">{safeBatch.batchLabel || 'No Label'}</strong>
-                <p><span className="font-medium text-gray-500">Variety:</span> {safeBatch.variety || 'N/A'}</p>
+                <p><span className="font-medium text-gray-500">Variety:</span> {safeBatch.variety?.name || 'N/A'}</p>
                 <p><span className="font-medium text-gray-500">Inoculated:</span> {formatDate(safeBatch.inoculationDate)}</p>
                 {safeBatch.colonisationCompleteDate && <p><span className="font-medium text-gray-500">Colonised:</span> {formatDate(safeBatch.colonisationCompleteDate)}</p>}
                 {safeBatch.stage === 'grow' && safeBatch.growRoomEntryDate && <p><span className="font-medium text-gray-500">Entered Grow:</span> {formatDate(safeBatch.growRoomEntryDate)}</p>}
