@@ -72,7 +72,6 @@ function LabView({
         };
 
         onAddBatch(newBatch);
-        alert("✅ Batch created and moved to Incubation Room!");
 
         // Clear Form Fields
         setVariety(availableVarieties?.[0]?.name || '');

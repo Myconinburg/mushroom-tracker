@@ -1,84 +1,100 @@
 // src/views/IncubationView.jsx
-// Make sure useState is imported from React
 import React, { useState } from 'react';
 import BatchCard from '../components/BatchCard';
-import MovePartialToGrowRoomModal from '../components/MovePartialToGrowRoomModal';
+// We don't need the MovePartial modal here anymore, App.js handles it.
+import { ChevronUpIcon, ChevronDownIcon, SettingsIcon } from '../components/icons';
 
-// Accept onSplitBatch as a new prop
-function IncubationView({ batches, onUpdateBatch, onMoveBatch, onDeleteBatch, onSplitBatch }) {
+function IncubationView({ 
+    batches, 
+    onUpdateBatch, 
+    onOpenMoveConfirmModal, 
+    onDeleteBatch, 
+    onOpenMovePartialModal, 
+    columns, 
+    onOpenManageColumns, 
+    onMoveBatchToColumn
+}) {
+    
     const incubationBatches = Array.isArray(batches)
         ? batches.filter(batch => batch?.stage === 'incubation')
         : [];
 
-    const [isMovePartialModalOpen, setIsMovePartialModalOpen] = useState(false);
-    const [selectedBatchForPartialMove, setSelectedBatchForPartialMove] = useState(null);
-
-    const handleOpenMovePartialModal = (batch) => {
-        setSelectedBatchForPartialMove(batch);
-        setIsMovePartialModalOpen(true);
-    };
-
-    const handleCloseMovePartialModal = () => {
-        setIsMovePartialModalOpen(false);
-        setSelectedBatchForPartialMove(null);
-    };
-
-    // Modified to use onSplitBatch
-    const handlePartialMoveSubmit = async (formData) => {
-        if (!selectedBatchForPartialMove) {
-            console.error("No batch selected for partial move.");
-            alert("Error: No batch selected. Please try again."); // Or use a more sophisticated error display
-            return;
+    const [openColumns, setOpenColumns] = useState(() => {
+        const initialOpen = {};
+        if (columns && columns.length > 0) {
+            initialOpen[columns[0].id] = true;
         }
+        return initialOpen;
+    });
 
-        try {
-            // Call the onSplitBatch function passed down from App.js
-            // formData from the modal contains: { quantity, colonisationDate, notes }
-            await onSplitBatch(selectedBatchForPartialMove.id, formData);
-
-            alert(`Batch ${selectedBatchForPartialMove.batchLabel || selectedBatchForPartialMove.id} partially moved successfully!`);
-            handleCloseMovePartialModal();
-        } catch (error) {
-            console.error("Failed to move partial batch:", error);
-            // You could set an error state here to display in the modal or view
-            alert(`Error moving batch: ${error.message || 'An unknown error occurred.'}`);
-            // Optionally, decide if the modal should close on error or stay open
-            // handleCloseMovePartialModal();
-        }
+    const toggleColumn = (columnId) => {
+        setOpenColumns(prev => ({ ...prev, [columnId]: !prev[columnId] }));
     };
 
     return (
-        <div className="p-4 md:p-6">
-            <h2 className="text-xl md:text-2xl font-semibold mb-4 text-gray-900">
-                Incubation Room
-            </h2>
+        <div className="container mx-auto p-4">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl md:text-2xl font-semibold text-gray-900">
+                    Incubation Room
+                </h2>
+                <button 
+                    onClick={onOpenManageColumns}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                >
+                    <SettingsIcon className="h-5 w-5" />
+                    Manage Columns
+                </button>
+            </div>
+
             {incubationBatches.length === 0 ? (
                 <p className="text-gray-500 italic">No batches currently in incubation.</p>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {incubationBatches.map(batch =>
-                        batch && batch.id ? (
-                            <BatchCard
-                                key={batch.id}
-                                batch={batch}
-                                onUpdateBatch={onUpdateBatch}
-                                onMoveBatch={onMoveBatch}
-                                onDeleteBatch={onDeleteBatch}
-                                onOpenMovePartialModal={handleOpenMovePartialModal}
-                                // onOpenHarvestModal is not typically needed for incubation
-                            />
-                        ) : null
-                    )}
-                </div>
-            )}
+                <div className="space-y-4">
+                    {columns && columns.map(column => {
+                        const batchesInColumn = incubationBatches.filter(b => b.columnId === column.id);
+                        const isColumnOpen = !!openColumns[column.id];
 
-            {selectedBatchForPartialMove && (
-                <MovePartialToGrowRoomModal
-                    isOpen={isMovePartialModalOpen}
-                    onClose={handleCloseMovePartialModal}
-                    parentBatch={selectedBatchForPartialMove}
-                    onSubmit={handlePartialMoveSubmit}
-                />
+                        return (
+                            <div key={column.id} className="bg-gray-50 border border-gray-200 rounded-lg">
+                                <button 
+                                    onClick={() => toggleColumn(column.id)}
+                                    className="w-full flex justify-between items-center p-4 text-left"
+                                >
+                                    <div className="flex items-center">
+                                        <span className="w-4 h-4 rounded-full mr-3" style={{ backgroundColor: column.color }}></span>
+                                        <h3 className="text-lg font-semibold text-gray-800">{column.title}</h3>
+                                        <span className="ml-2 text-sm font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                                            {batchesInColumn.length}
+                                        </span>
+                                    </div>
+                                    {isColumnOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                                </button>
+                                {isColumnOpen && (
+                                    <div className="p-4 border-t border-gray-200">
+                                        {batchesInColumn.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {batchesInColumn.map(batch => (
+                                                    <BatchCard
+                                                        key={batch.id}
+                                                        batch={batch}
+                                                        onUpdateBatch={onUpdateBatch}
+                                                        onOpenMoveConfirmModal={onOpenMoveConfirmModal}
+                                                        onDeleteBatch={onDeleteBatch}
+                                                        onOpenMovePartialModal={onOpenMovePartialModal}
+                                                        columns={columns}
+                                                        onMoveBatchToColumn={onMoveBatchToColumn}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 italic px-2">This column is empty.</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             )}
         </div>
     );
