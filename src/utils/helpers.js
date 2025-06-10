@@ -8,58 +8,40 @@
  * @param {Array<{name: string, abbr: string}>} availableVarieties - The array of variety objects.
  * @returns {string} A 2-letter uppercase abbreviation or '??' if input is invalid.
  */
-export function getAbbreviation(varietyName, availableVarieties = []) { // Add availableVarieties parameter
+// KEPT: This version from Tobys-Branch is more dynamic and works with API data.
+export function getAbbreviation(varietyName, availableVarieties = []) {
     if (!varietyName || !Array.isArray(availableVarieties)) {
-        return "??"; // Return '??' if name or array is invalid
+        return "??";
     }
-
-    // Find the variety object in the list where the name matches
     const varietyObj = availableVarieties.find(v => v.name === varietyName);
-
     if (varietyObj && varietyObj.abbr) {
-        // Return the custom abbreviation stored in the object if found
         return varietyObj.abbr.toUpperCase();
     } else {
-        // Fallback: If no object is found, use the first two letters of the name
         return varietyName.substring(0, 2).toUpperCase() || "??";
     }
 }
 
-// --- Keep other helper functions below as they were ---
-
 /**
  * Formats a date input (Date object or string) into "YYYY-MM-DD" format.
- * Handles potential timezone offsets to ensure the local date is represented.
  * @param {Date|string|null} dateInput - The date to format.
  * @returns {string} The date formatted as "YYYY-MM-DD", or an empty string if input is invalid.
  */
 export function formatDate(dateInput) {
-    if (!dateInput) return ''; // Return empty if input is null, undefined, or empty string
+    if (!dateInput) return '';
     try {
-        // Handle cases where dateInput might already be a Date object or various string formats
         const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-
-        // Check if the date object is valid after parsing
         if (isNaN(date.getTime())) {
-           // If original input was a string that looked like YYYY-MM-DD, try parsing it directly
-           if (typeof dateInput === 'string' && dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
-               const checkDate = new Date(dateInput + 'T00:00:00'); // Use T00:00:00 to ensure local date
-               if (!isNaN(checkDate.getTime())) return dateInput; // Return original if it was valid YYYY-MM-DD
-           }
-           // console.warn("Invalid date input for formatDate:", dateInput); // Keep commented unless debugging
-           return ''; // Return empty for invalid dates
+            if (typeof dateInput === 'string' && dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const checkDate = new Date(dateInput + 'T00:00:00');
+                if (!isNaN(checkDate.getTime())) return dateInput;
+            }
+            return '';
         }
-
-        // Adjust for timezone offset to get the correct YYYY-MM-DD in the *local* timezone
-        // This prevents the date from shifting back a day in some timezones
-        const offset = date.getTimezoneOffset(); // Get offset in minutes
-        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000)); // Adjust time
-
-        // Convert to ISO string and take the date part
+        const offset = date.getTimezoneOffset();
+        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
         return adjustedDate.toISOString().split('T')[0];
     } catch (e) {
-        // console.error("Error formatting date:", dateInput, e); // Keep commented unless debugging
-        return ''; // Return empty string on error
+        return '';
     }
 }
 
@@ -70,37 +52,31 @@ export function formatDate(dateInput) {
  * @returns {number|null} The difference in days, or null if inputs are invalid.
  */
 export function daysBetween(date1Str, date2Str) {
-    if (!date1Str || !date2Str) return null; // Check for null/undefined inputs
+    if (!date1Str || !date2Str) return null;
     try {
-        // Parse dates assuming local time by adding T00:00:00
         const date1 = new Date(date1Str + 'T00:00:00');
         const date2 = new Date(date2Str + 'T00:00:00');
-        if (isNaN(date1.getTime()) || isNaN(date2.getTime())) return null; // Check for invalid dates
-
-        // Calculate difference in milliseconds and convert to days
+        if (isNaN(date1.getTime()) || isNaN(date2.getTime())) return null;
         const differenceMs = date2.getTime() - date1.getTime();
         return Math.round(differenceMs / (1000 * 60 * 60 * 24));
     } catch (e) {
-        // console.error("Error calculating days between:", date1Str, date2Str, e); // Keep commented unless debugging
-        return null; // Return null on error
+        return null;
     }
 }
 
 /**
  * Gets the financial year string (e.g., "FY24/25") for a given date string.
- * Assumes financial year starts on a specific month (default July).
  * @param {string|null} dateStr - The date string ("YYYY-MM-DD").
  * @param {number} [startMonth=6] - The starting month of the financial year (0-indexed, default is 6 for July).
  * @returns {string} The financial year string or "N/A", "Invalid Date", "Error".
  */
 export function getFinancialYear(dateStr, startMonth = 6) {
-     if (!dateStr) return "N/A"; // Handle null/undefined date strings
+     if (!dateStr) return "N/A";
      try {
         const date = new Date(dateStr + 'T00:00:00');
         if (isNaN(date.getTime())) return "Invalid Date";
         let year = date.getFullYear();
-        const month = date.getMonth(); // 0-indexed (0 = Jan, 6 = Jul)
-
+        const month = date.getMonth();
         let startYear, endYear;
         if (month >= startMonth) {
             startYear = year;
@@ -109,10 +85,8 @@ export function getFinancialYear(dateStr, startMonth = 6) {
             startYear = year - 1;
             endYear = year;
         }
-        // Return in format FYYY/YY
         return `FY${String(startYear).slice(-2)}/${String(endYear).slice(-2)}`;
     } catch (e) {
-         // console.error("Error getting financial year:", dateStr, e); // Keep commented unless debugging
          return "Error";
     }
 }
@@ -125,12 +99,60 @@ export function getFinancialYear(dateStr, startMonth = 6) {
 export function getStartOfWeek(date) {
     try {
         const d = new Date(date);
-        if (isNaN(d.getTime())) return null; // Handle invalid date input
-        const day = d.getDay(); // 0 = Sunday, 1 = Monday, ...
-        const diff = d.getDate() - day; // Adjust date to Sunday
+        if (isNaN(d.getTime())) return null;
+        const day = d.getDay();
+        const diff = d.getDate() - day;
         return new Date(d.setDate(diff));
     } catch (e) {
-        // console.error("Error getting start of week:", date, e); // Keep commented unless debugging
         return null;
     }
+}
+
+/**
+ * Recursively converts object keys from snake_case or kebab-case to camelCase.
+ * Handles arrays and nested objects.
+ * @param {any} obj - The object or array to process.
+ * @returns {any} The object or array with camelCase keys.
+ */
+// ADDED: These two functions are essential for the API to work correctly.
+export function toCamelCase(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(v => toCamelCase(v));
+  } else if (obj !== null && typeof obj === 'object' && obj.constructor === Object) {
+    return Object.keys(obj).reduce(
+      (result, key) => {
+        const camelCaseKey = key.replace(/([-_][a-z])/gi, (group) =>
+          group.toUpperCase().replace('-', '').replace('_', '')
+        );
+        result[camelCaseKey] = toCamelCase(obj[key]);
+        return result;
+      },
+      {}
+    );
+  }
+  return obj;
+}
+
+/**
+ * Recursively converts object keys from camelCase to snake_case.
+ * Handles arrays and nested objects.
+ * @param {any} obj - The object or array to process.
+ * @returns {any} The object or array with snake_case keys.
+ */
+export function toSnakeCase(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(v => toSnakeCase(v));
+  } else if (obj !== null && typeof obj === 'object' && obj.constructor === Object) {
+    return Object.keys(obj).reduce(
+      (result, key) => {
+        const snakeCaseKey = key.replace(/[A-Z]/g, (letter, index) => {
+            return (index !== 0 && key[index-1] !== '_' && key[index-1] !== key[index-1].toUpperCase()) ? `_${letter.toLowerCase()}` : letter.toLowerCase();
+        });
+        result[snakeCaseKey] = toSnakeCase(obj[key]);
+        return result;
+      },
+      {}
+    );
+  }
+  return obj;
 }

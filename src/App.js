@@ -1,193 +1,292 @@
 // src/App.js
+
+// --- MERGED: Imports from both Tobys-Branch and main ---
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import HarvestModal from './components/HarvestModal';
 import SettingsPanel from './components/SettingsPanel';
-import HomepageView from './views/HomepageView';
-import LabView from './views/LabView';
-import IncubationView from './views/IncubationView';
-import GrowRoomView from './views/GrowRoomView';
-import RetirementView from './views/RetirementView';
-import DashboardView from './views/DashboardView';
-import ManageVarietiesView from './views/ManageVarietiesView';
-import ManageSubstratesView from './views/ManageSubstratesView';
-import ManageSuppliersView from './views/ManageSuppliersView';
-import { formatDate } from './utils/helpers';
+import LoginComponent from './components/LoginComponent.jsx';
+import HomepageView from './views/HomepageView.jsx';
+import LabView from './views/LabView.jsx';
+import IncubationView from './views/IncubationView.jsx';
+import GrowRoomView from './views/GrowRoomView.jsx';
+import RetirementView from './views/RetirementView.jsx';
+import DashboardView from './views/DashboardView.jsx';
+import ManageVarietiesView from './views/ManageVarietiesView.jsx';
+import ManageSubstratesView from './views/ManageSubstratesView.jsx';
+import ManageSuppliersView from './views/ManageSuppliersView.jsx';
+// New imports from Tobys-Branch
+import ManageUnitTypesView from './views/ManageUnitTypesView';
+import ConfirmationModal from './components/ConfirmationModal';
+import ManageColumnsModal from './components/ManageColumnsModal';
+import MovePartialToGrowRoomModal from './components/MovePartialToGrowRoomModal';
+import {
+  fetchBatches,
+  createBatch,
+  updateExistingBatch,
+  deleteExistingBatch,
+  fetchVarieties,
+  // NOTE: You will need to create API functions for these new types
+  // fetchSubstrates, createSubstrate, deleteSubstrate etc.
+} from './api';
+
+// --- KEPT: Logic from Tobys-Branch for UI, but data should come from API ---
+const getFromLocalStorage = (key, defaultValue) => {
+    const saved = localStorage.getItem(key);
+    try {
+        return saved ? JSON.parse(saved) : defaultValue;
+    } catch (e) {
+        console.error(`Error parsing ${key} from localStorage`, e);
+        return defaultValue;
+    }
+};
+
+const DEFAULT_COLUMN_ID = 'col-1';
+const defaultColumns = [
+    { id: DEFAULT_COLUMN_ID, title: 'General', color: '#A8A29E' }
+];
 
 function App() {
   const [currentView, setCurrentView] = useState('Spawn Point');
-  const [batches, setBatches] = useState(() => {
-       const savedBatches = localStorage.getItem('mushroomBatches');
-       try {
-        const parsedBatches = savedBatches ? JSON.parse(savedBatches) : [];
-        return parsedBatches.map(b => ({
-             id: b?.id || Date.now() + Math.random(),
-             batchLabel: b?.batchLabel || 'Unknown Label',
-             variety: b?.variety || 'Unknown Variety',
-             inoculationDate: formatDate(b?.inoculationDate) || null,
-             numBags: parseInt(b?.numBags || 0, 10),
-             unitType: b?.unitType || 'unit',
-             unitWeight: parseFloat(b?.unitWeight || 0),
-             substrateRecipe: b?.substrateRecipe || 'Unknown',
-             spawnSupplier: b?.spawnSupplier || 'Unknown',
-             contaminatedBags: parseInt(b?.contaminatedBags || 0, 10),
-             harvests: Array.isArray(b?.harvests) ? b.harvests.map(h => ({ date: formatDate(h?.date) || null, weight: parseFloat(h?.weight || 0) })).filter(h => h.date) : [],
-             notes: b?.notes || '',
-             stage: b?.stage || 'incubation',
-             colonisationCompleteDate: formatDate(b?.colonisationCompleteDate) || null,
-             growRoomEntryDate: formatDate(b?.growRoomEntryDate) || null,
-             retirementDate: formatDate(b?.retirementDate) || null,
-             parentBatchId_lineage: b?.parentBatchId_lineage || null,
-         }));
-      } catch (e) {
-          console.error("Error parsing saved batches from localStorage:", e);
-          localStorage.removeItem('mushroomBatches');
-          return [];
-      }
-  });
 
+  // --- MERGED: State management ---
+  // Kept data state from 'main' (API-driven)
+  const [batches, setBatches] = useState([]);
+  const [varieties, setVarieties] = useState([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Kept and adapted management state from 'Tobys-Branch'.
+  // NOTE: These should also be fetched from the API, not localStorage.
+  const [unitTypes, setUnitTypes] = useState(['bags', 'jars', 'trays']);
+  const [substrates, setSubstrates] = useState(['Masters Mix', 'Coco Coir']);
+  const [suppliers, setSuppliers] = useState(['MycoSymbiotics', 'Local Supplier']);
+
+  // Kept UI state from 'Tobys-Branch'
   const [isHarvestModalOpen, setIsHarvestModalOpen] = useState(false);
   const [harvestTargetBatch, setHarvestTargetBatch] = useState(null);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [confirmModalProps, setConfirmModalProps] = useState({ title: '', message: '', onConfirm: () => {} });
+  const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
+  const [isMovePartialModalOpen, setIsMovePartialModalOpen] = useState(false);
+  const [movePartialTargetBatch, setMovePartialTargetBatch] = useState(null);
+  const [columnLayouts, setColumnLayouts] = useState(() => getFromLocalStorage('mushroomColumnLayouts', { 'Incubation': defaultColumns, 'Grow Room': defaultColumns }));
 
+  // --- KEPT: Data loading logic from 'main' ---
   useEffect(() => {
-    try {
-        const batchesToSave = batches.filter(b => b.id);
-        localStorage.setItem('mushroomBatches', JSON.stringify(batchesToSave));
-    } catch (e) {
-        console.error("Error saving batches to localStorage:", e);
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      setIsAuthenticated(true);
+      const loadData = async () => {
+        try {
+          const fetchedBatches = await fetchBatches();
+          setBatches(fetchedBatches.map(b => ({ ...b, columnId: b.columnId || DEFAULT_COLUMN_ID })));
+          
+          const fetchedVarieties = await fetchVarieties();
+          setVarieties(fetchedVarieties);
+          // TODO: Fetch substrates, suppliers, unit types from API here as well
+        } catch (error) {
+          console.error("Error loading data:", error);
+          if (error.status === 401) {
+            setIsAuthenticated(false);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+          }
+        }
+      };
+      loadData();
+    } else {
+      setIsAuthenticated(false);
     }
-  }, [batches]);
+  }, [isAuthenticated]);
 
-  const addBatch = (newBatchData) => {
-    setBatches(prevBatches => {
-        const parsedNumBags = parseInt(newBatchData.numBags, 10);
-        const parsedUnitWeight = parseFloat(newBatchData.unitWeight);
-        const batchWithDefaults = {
-            ...newBatchData,
-            id: Date.now(),
-            numBags: isNaN(parsedNumBags) ? 0 : parsedNumBags,
-            unitWeight: isNaN(parsedUnitWeight) ? 0 : parsedUnitWeight,
-            inoculationDate: formatDate(newBatchData.inoculationDate) || formatDate(new Date()),
-            stage: 'incubation',
-            contaminatedBags: 0,
-            harvests: [],
-            notes: newBatchData.notes || '',
-            colonisationCompleteDate: null,
-            growRoomEntryDate: null,
-            retirementDate: null,
-            parentBatchId_lineage: null,
-        };
-        const newState = [ ...prevBatches, batchWithDefaults ].sort((a, b) => b.id - a.id);
-        setCurrentView('Incubation');
-        return newState;
-    });
-   };
-  const updateBatch = (batchId, updatedData) => { setBatches(prevBatches => prevBatches.map(batch => batch.id === batchId ? { ...batch, ...updatedData } : batch) ); };
-  const moveBatch = (batchId, newStage) => { setBatches(prevBatches => prevBatches.map(batch => { if (batch.id === batchId) { const updatedBatch = { ...batch, stage: newStage }; const todayStr = formatDate(new Date()); if (newStage === 'grow' && batch.stage !== 'grow') updatedBatch.growRoomEntryDate = todayStr; if (newStage === 'retired' && batch.stage !== 'retired') updatedBatch.retirementDate = todayStr; if (newStage === 'incubation') { updatedBatch.growRoomEntryDate = null; updatedBatch.retirementDate = null; } if (newStage === 'grow' && batch.stage === 'retired') updatedBatch.retirementDate = null; return updatedBatch; } return batch; }) ); };
-  const deleteBatch = (batchId) => { const batchLabelToDelete = batches.find(b=>b.id===batchId)?.batchLabel || batchId; if (window.confirm(`Are you sure you want to permanently delete batch ${batchLabelToDelete}? This cannot be undone.`)) { setBatches(prevBatches => prevBatches.filter(batch => batch.id !== batchId)); } };
+  // Persist column layouts to local storage (UI preference)
+  useEffect(() => {
+    localStorage.setItem('mushroomColumnLayouts', JSON.stringify(columnLayouts));
+  }, [columnLayouts]);
 
-  const splitBatchForGrowRoom = (parentBatchId, splitOffData) => {
-    setBatches(prevBatches => {
-      const parentBatch = prevBatches.find(b => b.id === parentBatchId);
-      if (!parentBatch) {
-        console.error("Parent batch not found for splitting:", parentBatchId);
-        alert("Error: Original batch not found. Could not complete the move.");
-        return prevBatches;
-      }
-      const quantityToMove = parseInt(splitOffData.quantity, 10);
-      if (isNaN(quantityToMove) || quantityToMove <= 0 || quantityToMove > parentBatch.numBags) {
-        console.error("Invalid quantity to move:", quantityToMove);
-        alert("Error: Invalid quantity specified for the move.");
-        return prevBatches;
-      }
-      const updatedParentBatch = {
-        ...parentBatch,
-        numBags: parentBatch.numBags - quantityToMove,
-        notes: `${parentBatch.notes || ''}\nSplit off ${quantityToMove} units on ${formatDate(new Date())}.`.trim(),
-      };
-      const newChildBatchId = Date.now() + 1; // Add 1 to try and ensure more uniqueness if called rapidly
-      const newChildBatch = {
-        ...parentBatch,
-        id: newChildBatchId,
-        batchLabel: `${parentBatch.batchLabel}-G${(Math.random().toString(36).substr(2, 3)).toUpperCase()}`,
-        numBags: quantityToMove,
-        stage: 'grow',
-        colonisationCompleteDate: formatDate(splitOffData.colonisationDate),
-        growRoomEntryDate: formatDate(new Date()),
-        inoculationDate: parentBatch.inoculationDate,
-        parentBatchId_lineage: parentBatchId,
-        harvests: [],
-        contaminatedBags: 0,
-        notes: `Split from batch ${parentBatch.batchLabel} (ID: ${parentBatchId}). ${splitOffData.notes || ''}`.trim(),
-        retirementDate: null,
-      };
-      const updatedBatches = prevBatches.map(b =>
-        b.id === parentBatchId ? updatedParentBatch : b
-      );
-      updatedBatches.push(newChildBatch);
-      return updatedBatches.sort((a, b) => b.id - a.id);
-    });
+  // --- MERGED: Batch Management Functions ---
+  // Using 'main's async/API logic but adding 'Tobys-Branch's UI feedback.
+  const addBatch = async (newBatchData) => {
+    try {
+      const createdBatch = await createBatch({
+          ...newBatchData,
+          columnId: DEFAULT_COLUMN_ID
+      });
+      setBatches(prev => [createdBatch, ...prev].sort((a,b) => b.id - a.id));
+      setConfirmModalProps({
+          title: "Batch Created!",
+          message: `Batch "${createdBatch.batchLabel}" has been added.`,
+          onConfirm: () => { closeConfirmModal(); setCurrentView('Incubation'); },
+          confirmText: 'Go to Incubation',
+          cancelText: null
+      });
+      setIsConfirmModalOpen(true);
+    } catch (error) {
+      console.error("Error creating batch:", error);
+      alert("Failed to create batch: " + error.message);
+    }
   };
 
-  const openHarvestModal = (batchId) => { const target = batches.find(b => b.id === batchId); if (target) { setHarvestTargetBatch({ id: target.id, label: target.batchLabel }); setIsHarvestModalOpen(true); } else { console.error("Target batch not found for harvest modal:", batchId); } };
-  const closeHarvestModal = () => { setIsHarvestModalOpen(false); setHarvestTargetBatch(null); };
-  const submitHarvest = (batchId, harvestWeights) => { const today = formatDate(new Date()); const newHarvestEntries = harvestWeights.map(weight => ({ date: today, weight: parseFloat(weight) })); setBatches(prevBatches => prevBatches.map(batch => { if (batch.id === batchId) { const existingHarvests = Array.isArray(batch.harvests) ? batch.harvests : []; return { ...batch, harvests: [...existingHarvests, ...newHarvestEntries] }; } return batch; }) ); closeHarvestModal(); };
-
-  const openSettingsPanel = () => { setIsSettingsPanelOpen(true); };
-  const closeSettingsPanel = () => { setIsSettingsPanelOpen(false); };
-
-  const renderView = () => {
+  const updateBatch = async (batchId, updatedData) => {
     try {
-        switch (currentView) {
-            case 'Spawn Point':
-                return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
-            case 'Lab':
-                return <LabView onAddBatch={addBatch} />;
-            case 'Incubation':
-                return <IncubationView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onDeleteBatch={deleteBatch} onSplitBatch={splitBatchForGrowRoom} />;
-            case 'Grow Room':
-                return <GrowRoomView batches={batches} onUpdateBatch={updateBatch} onMoveBatch={moveBatch} onOpenHarvestModal={openHarvestModal} />;
-            case 'Retirement':
-                return <RetirementView batches={batches} onMoveBatch={moveBatch} />;
-            case 'ManageVarieties':
-                return <ManageVarietiesView />;
-            case 'ManageSubstrates':
-                return <ManageSubstratesView />;
-            case 'ManageSuppliers':
-                return <ManageSuppliersView />;
-            case 'Dashboard':
-            default:
-                return <DashboardView batches={batches}/>;
-        }
+      const updatedBatch = await updateExistingBatch(batchId, updatedData);
+      setBatches(prev => prev.map(b => (b.id === batchId ? updatedBatch : b)));
+    } catch (error) {
+      console.error("Error updating batch:", error);
+      alert("Failed to update batch: " + error.message);
+    }
+  };
+  
+  const moveBatch = (batchId, newStage) => {
+    const batchToMove = batches.find(b => b.id === batchId);
+    if (!batchToMove) return;
+    // We only need to send the 'stage'. The backend will handle setting the dates.
+    updateBatch(batchId, { stage: newStage });
+    closeConfirmModal();
+  };
+
+  const deleteBatch = async (batchId) => {
+    try {
+        await deleteExistingBatch(batchId);
+        setBatches(prev => prev.filter(b => b.id !== batchId));
+        closeConfirmModal();
+    } catch (error) {
+        console.error("Error deleting batch:", error);
+        alert("Failed to delete batch: " + error.message);
+    }
+  };
+
+  // --- MERGED: Combining harvest logic ---
+  const submitHarvest = (batchId, harvestEntries) => {
+    const batchToUpdate = batches.find(b => b.id === batchId);
+    if (!batchToUpdate) return;
+    // Backend expects array of weights, not full harvest objects for a new submission
+    const newHarvestWeights = harvestEntries.map(h => h.weight); 
+    // The API should be designed to handle this payload
+    updateBatch(batchId, { new_harvests: newHarvestWeights });
+    closeHarvestModal();
+  };
+  
+  // --- KEPT: New UI features from 'Tobys-Branch' ---
+  // These functions are kept, but some may need to be adapted to call the API
+  const handleAddColumn = (viewName, title, color) => {
+    const newColumn = { id: `col-${Date.now()}`, title, color };
+    setColumnLayouts(prev => ({ ...prev, [viewName]: [...(prev[viewName] || []), newColumn] }));
+  };
+  const handleUpdateColumn = (viewName, columnId, updatedData) => {
+    setColumnLayouts(prev => ({ ...prev, [viewName]: prev[viewName].map(col => col.id === columnId ? { ...col, ...updatedData } : col) }));
+  };
+  const handleDeleteColumn = (viewName, columnId) => {
+    if (columnId === DEFAULT_COLUMN_ID) { alert("The default column cannot be deleted."); return; }
+    const batchesInColumn = batches.filter(b => b.columnId === columnId).length;
+    if (batchesInColumn > 0) { alert("Cannot delete a column that contains batches."); return; }
+    setColumnLayouts(prev => ({ ...prev, [viewName]: prev[viewName].filter(col => col.id !== columnId) }));
+  };
+  const handleMoveBatchToColumn = (batchId, newColumnId) => {
+    updateBatch(batchId, { column_id: newColumnId }); // Assuming backend supports this
+  };
+
+  // Modal handlers
+  const openHarvestModal = (batchId) => {
+    const target = batches.find(b => b.id === batchId);
+    if(target) {
+        setHarvestTargetBatch(target);
+        setIsHarvestModalOpen(true); 
+    }
+  };
+  const closeHarvestModal = () => setIsHarvestModalOpen(false);
+  const closeConfirmModal = () => setIsConfirmModalOpen(false);
+  
+  const openDeleteConfirmModal = (batchId, batchLabel) => {
+    setConfirmModalProps({
+        title: 'Confirm Deletion',
+        message: `Are you sure you want to permanently delete batch "${batchLabel}"?`,
+        onConfirm: () => deleteBatch(batchId),
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmButtonClassName: "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+    });
+    setIsConfirmModalOpen(true);
+  };
+   const openMoveConfirmationModal = (batchId, newStage, batchLabel) => {
+     setConfirmModalProps({
+         title: `Move Batch`,
+         message: `Are you sure you want to move batch "${batchLabel}" to ${newStage}?`,
+         onConfirm: () => moveBatch(batchId, newStage),
+         confirmText: 'Confirm Move',
+     });
+     setIsConfirmModalOpen(true);
+   };
+
+  // --- TODO: All "Management" functions below need to be converted to use API calls ---
+  const handleAddUnitType = (name) => { setUnitTypes(prev => [...prev, name]); };
+  const handleDeleteUnitType = (name) => { setUnitTypes(prev => prev.filter(item => item !== name)); };
+  const handleAddSubstrate = (name) => { setSubstrates(prev => [...prev, name]); };
+  const handleDeleteSubstrate = (name) => { setSubstrates(prev => prev.filter(item => item !== name)); };
+  const handleAddVariety = (name, abbr) => { /* TODO: Call createVariety API */ };
+  const handleDeleteVariety = (varietyToDelete) => { /* TODO: Call deleteVariety API */ };
+  const handleAddSupplier = (name) => { setSuppliers(prev => [...prev, name]); };
+  const handleDeleteSupplier = (name) => { setSuppliers(prev => prev.filter(item => item !== name)); };
+
+  const openSettingsPanel = () => setIsSettingsPanelOpen(true);
+  const closeSettingsPanel = () => setIsSettingsPanelOpen(false);
+
+  // --- MERGED: renderView function ---
+  const renderView = () => {
+    // Kept authentication check from 'main'
+    if (!isAuthenticated) {
+      return <LoginComponent onLoginSuccess={() => setIsAuthenticated(true)} />;
+    }
+
+    try {
+      // Using 'Tobys-Branch's structure as it's more up-to-date with views
+      switch (currentView) {
+        case 'Incubation': return <IncubationView batches={batches} onUpdateBatch={updateBatch} onOpenMoveConfirmModal={openMoveConfirmationModal} onDeleteBatch={openDeleteConfirmModal} columns={columnLayouts['Incubation']} onMoveBatchToColumn={handleMoveBatchToColumn} onOpenManageColumns={() => setIsManageColumnsModalOpen(true)} />;
+        case 'Spawn Point': return <HomepageView batches={batches} setCurrentView={setCurrentView} />;
+        case 'Lab': return <LabView onAddBatch={addBatch} availableUnitTypes={unitTypes} availableVarieties={varieties} availableSubstrates={substrates} availableSuppliers={suppliers} />;
+        case 'Grow Room': return <GrowRoomView batches={batches} onUpdateBatch={updateBatch} onOpenMoveConfirmModal={openMoveConfirmationModal} onOpenHarvestModal={openHarvestModal} columns={columnLayouts['Grow Room']} onMoveBatchToColumn={handleMoveBatchToColumn} onOpenManageColumns={() => setIsManageColumnsModalOpen(true)} />;
+        case 'Retirement': return <RetirementView batches={batches} onOpenMoveConfirmModal={openMoveConfirmationModal} />;
+        case 'ManageVarieties': return <ManageVarietiesView availableVarieties={varieties} onAddVariety={handleAddVariety} onDeleteVariety={handleDeleteVariety} />;
+        case 'ManageSubstrates': return <ManageSubstratesView availableSubstrates={substrates} onAddSubstrate={handleAddSubstrate} onDeleteSubstrate={handleDeleteSubstrate} />;
+        case 'ManageSuppliers': return <ManageSuppliersView availableSuppliers={suppliers} onAddSupplier={handleAddSupplier} onDeleteSupplier={handleDeleteSupplier} />;
+        case 'ManageUnitTypes': return <ManageUnitTypesView availableUnitTypes={unitTypes} onAddUnitType={handleAddUnitType} onDeleteUnitType={handleDeleteUnitType} />;
+        case 'Dashboard': default: return <DashboardView batches={batches} />;
+      }
     } catch (error) {
         console.error("Error rendering view:", currentView, error);
-        return <div className="p-6 text-red-600 bg-red-100 border border-red-400 rounded-md">Error rendering view: {currentView}. Check console for details.</div>;
+        return (<div className="p-6 text-red-500 bg-red-100 border border-red-400 rounded-md">Error rendering view.</div>);
     }
   };
 
+  // --- MERGED: Final JSX return ---
   return (
     <>
       <Navbar
         currentView={currentView}
         setCurrentView={setCurrentView}
         openSettingsPanel={openSettingsPanel}
+        isAuthenticated={isAuthenticated}
+        onLogout={() => {
+          setIsAuthenticated(false);
+          localStorage.clear();
+        }}
       />
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {renderView()}
       </main>
-      {/* Render Harvest Modal conditionally */}
-      {isHarvestModalOpen && harvestTargetBatch && (
-          <HarvestModal
-            isOpen={isHarvestModalOpen} // <-- THE CRUCIAL PROP
-            batchId={harvestTargetBatch.id}
-            batchLabel={harvestTargetBatch.label}
-            onClose={closeHarvestModal}
-            onSubmitHarvest={submitHarvest}
-          />
-       )}
-       {/* Render Settings Panel conditionally */}
-       <SettingsPanel isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+      
+      {/* Kept all new modals from 'Tobys-Branch' */}
+      <ManageColumnsModal isOpen={isManageColumnsModalOpen} onClose={() => setIsManageColumnsModalOpen(false)} columns={columnLayouts[currentView]} onAddColumn={handleAddColumn} onUpdateColumn={handleUpdateColumn} onDeleteColumn={handleDeleteColumn} viewName={currentView} />
+      
+      {isHarvestModalOpen && harvestTargetBatch && <HarvestModal isOpen={isHarvestModalOpen} batchId={harvestTargetBatch.id} batchLabel={harvestTargetBatch.batchLabel} onClose={closeHarvestModal} onSubmitHarvest={submitHarvest} />}
+      
+      <SettingsPanel isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+      
+      <ConfirmationModal isOpen={isConfirmModalOpen} onClose={closeConfirmModal} {...confirmModalProps} />
+
+      {/* Note: The 'split batch' logic needs to be implemented in the backend API */}
+      {movePartialTargetBatch && <MovePartialToGrowRoomModal isOpen={isMovePartialModalOpen} onClose={() => setIsMovePartialModalOpen(false)} parentBatch={movePartialTargetBatch} onSubmit={() => {}} />}
     </>
   );
 }
