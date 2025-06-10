@@ -1,61 +1,39 @@
 // src/views/ManageSuppliersView.jsx
 import React, { useState } from 'react';
 
-// Import necessary icons from your single icons file
-// Adjust path if needed
-import { TrashIcon, PlusIcon, SupplierIcon } from '../components/icons';
+// Import necessary icons
+import { TrashIcon, PlusIcon, SupplierIcon } from '../components/icons'; // Assuming path is correct
 
-// Placeholder function - replace with props from App.js later
-const handleDeleteSupplier = (supplierName) => {
-    console.log("Placeholder: Delete supplier", supplierName);
-    alert(`Delete functionality for ${supplierName} not fully implemented yet.`);
-};
-
-// Placeholder function - replace with props from App.js later
-const handleAddSupplier = (newSupplier) => {
-    console.log("Placeholder: Add supplier", newSupplier);
-    alert(`Add functionality for ${newSupplier} not fully implemented yet.`);
-};
-
-// Placeholder list - replace with props from App.js later
-const placeholderSuppliers = [
-    "Local Spores Co.", "MycoSupreme", "Fungi Perfecti", "Gourmet Mushrooms"
-];
-
+// Removed placeholder functions and list - using props now
 
 function ManageSuppliersView({
-    // Props to be added later from App.js:
-    // availableSuppliers = placeholderSuppliers,
-    // onAddSupplier = handleAddSupplier,
-    // onDeleteSupplier = handleDeleteSupplier
+    availableSuppliers, // Prop from App.js: array of supplier name strings
+    onAddSupplier,      // Prop from App.js: function to add a supplier
+    onDeleteSupplier    // Prop from App.js: function to delete a supplier
 }) {
-    // Use placeholder data for now until props are passed
-    const availableSuppliers = placeholderSuppliers;
-    const onAddSupplier = handleAddSupplier;
-    const onDeleteSupplier = handleDeleteSupplier;
-
+    // State only for the input field value
     const [newSupplierName, setNewSupplierName] = useState('');
 
+    // Handle clicking the "Add" button
     const handleAddClick = () => {
-        if (newSupplierName.trim() === '') {
+        const trimmedName = newSupplierName.trim();
+        if (trimmedName === '') {
             alert('Please enter a supplier name.');
             return;
         }
-         if (availableSuppliers.includes(newSupplierName.trim())) {
-             alert(`"${newSupplierName.trim()}" already exists.`);
-             return;
-        }
-        onAddSupplier(newSupplierName.trim());
+        // Call the onAddSupplier function passed via props (from App.js)
+        // This function in App.js will handle checking if the name already exists
+        onAddSupplier(trimmedName);
         setNewSupplierName(''); // Clear input after adding
     };
 
-    // Styles (consistent with other management views)
+    // --- Tailwind Styles ---
     const containerStyle = "p-6 bg-white rounded-lg shadow border border-gray-200";
     const inputStyle = "w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-orange-500 focus:border-orange-500";
     const listStyle = "list-disc pl-5 space-y-1 text-gray-700";
     const listItemStyle = "flex justify-between items-center py-1";
     const buttonBase = "px-3 py-1 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2";
-    const addButton = `${buttonBase} bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 ml-2`;
+    const addButton = `${buttonBase} bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 ml-2 inline-flex items-center`; // Added flex items-center
     const deleteButton = `${buttonBase} bg-red-100 text-red-700 hover:bg-red-200 focus:ring-red-500`;
 
 
@@ -88,13 +66,16 @@ function ManageSuppliersView({
             {/* Existing Suppliers List */}
             <div>
                 <h3 className="text-lg font-medium text-gray-800 mb-2">Existing Suppliers</h3>
-                {availableSuppliers.length === 0 ? (
+                {/* Check if the availableSuppliers array (prop) is empty */}
+                {availableSuppliers && availableSuppliers.length === 0 ? (
                     <p className="text-gray-500 italic">No suppliers defined yet.</p>
                 ) : (
                     <ul className={listStyle}>
-                        {availableSuppliers.map((supplier) => (
+                        {/* Map over availableSuppliers (prop) */}
+                        {availableSuppliers && availableSuppliers.map((supplier) => (
                             <li key={supplier} className={listItemStyle}>
                                 <span>{supplier}</span>
+                                {/* Call onDeleteSupplier (prop) with the supplier name string */}
                                 <button onClick={() => onDeleteSupplier(supplier)} className={deleteButton} title={`Delete ${supplier}`}>
                                     <TrashIcon className="h-4 w-4" />
                                 </button>
