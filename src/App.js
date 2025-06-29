@@ -131,7 +131,7 @@ function App() {
   const updateBatch = async (batchId, updatedData) => {
     try {
       const updatedBatch = await updateExistingBatch(batchId, updatedData);
-      setBatches(prev => prev.map(b => (b.id === batchId ? updatedBatch : b)));
+      setBatches(prev => prev.map(b => (b.id === batchId ? { ...b, ...updatedBatch } : b)));
     } catch (error) {
       console.error("Error updating batch:", error);
       alert("Failed to update batch: " + error.message);
