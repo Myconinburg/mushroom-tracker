@@ -70,15 +70,16 @@ function LabView({
 
         const newBatch = {
             batchLabel,
-            varietyId: parsedVarietyId, // KEPT from `main`: Sending the ID is crucial.
+            varietyId: parsedVarietyId,
             inoculationDate,
             numBags: units,
             unitType,
             unitWeight: weight,
-            substrateRecipe, // Kept from Tobys-Branch
-            spawnSupplier,   // Kept from Tobys-Branch
+            substrateRecipe,
+            spawnSupplier,
             notes,
-            // The stage is set on the backend now, so we don't need to send it.
+            // We must explicitly tell the backend which stage to create the batch in.
+            stage: "incubation",
         };
         
         onAddBatch(newBatch);
