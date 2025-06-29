@@ -162,7 +162,7 @@ export function createBatch(batchData) {
 }
 
 export function updateExistingBatch(batchId, batchData) {
-  return request(`batches/${batchId}/`, { body: batchData, method: 'PUT' });
+  return request(`batches/${batchId}/`, { body: batchData, method: 'PATCH' });
 }
 
 export function deleteExistingBatch(batchId) {
