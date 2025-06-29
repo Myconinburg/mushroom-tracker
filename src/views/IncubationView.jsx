@@ -16,7 +16,7 @@ function IncubationView({
 }) {
     
     const incubationBatches = Array.isArray(batches)
-        ? batches.filter(batch => batch?.stage === 'Incubation')
+        ? batches.filter(batch => batch?.stage === 'incubation')
         : [];
 
     const [openColumns, setOpenColumns] = useState(() => {
