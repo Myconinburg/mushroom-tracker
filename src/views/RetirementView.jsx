@@ -9,7 +9,7 @@ function RetirementView({ batches, onOpenMoveConfirmModal }) {
 
     const filteredBatches = useMemo(() => {
         if (!Array.isArray(batches)) return [];
-        const retiredOnly = batches.filter(b => b?.stage === 'Retired');
+        const retiredOnly = batches.filter(b => b?.stage === 'retired');
         return retiredOnly.filter(b => {
             const retiredDateStr = b.retirementDate;
             if (!retiredDateStr) return false;

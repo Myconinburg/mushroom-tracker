@@ -5,7 +5,7 @@ import { SettingsIcon } from '../components/icons';
 
 function GrowRoomView({ batches, onUpdateBatch, onOpenMoveConfirmModal, onOpenHarvestModal, columns, onOpenManageColumns, onMoveBatchToColumn }) {
     const growRoomBatches = Array.isArray(batches)
-        ? batches.filter(batch => batch?.stage === 'Grow Room')
+        ? batches.filter(batch => batch?.stage === 'grow room')
         : [];
 
     return (
