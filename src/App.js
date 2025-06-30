@@ -109,11 +109,24 @@ function App() {
   // Using 'main's async/API logic but adding 'Tobys-Branch's UI feedback.
   const addBatch = async (newBatchData) => {
     try {
+      // First, create the new batch as before.
       const createdBatch = await createBatch({
           ...newBatchData,
-          columnId: DEFAULT_COLUMN_ID
+          // The 'columnId' field doesn't exist on the backend model,
+          // so we should not send it during creation.
+          // columnId: DEFAULT_COLUMN_ID // This line should be removed.
       });
-      setBatches(prev => [createdBatch, ...prev].sort((a,b) => b.id - a.id));
+
+      // --- NEW, MORE RELIABLE LOGIC ---
+      // Instead of just adding the new batch to the old list,
+      // we now re-fetch the ENTIRE list from the server.
+      // This guarantees our data is 100% in sync.
+      const refreshedBatches = await fetchBatches();
+      
+      // Update the state with the complete, fresh list and sort it.
+      setBatches(refreshedBatches.sort((a,b) => b.id - a.id));
+
+      // The confirmation modal works as before.
       setConfirmModalProps({
           title: "Batch Created!",
           message: `Batch "${createdBatch.batchLabel}" has been added.`,
@@ -122,6 +135,7 @@ function App() {
           cancelText: null
       });
       setIsConfirmModalOpen(true);
+
     } catch (error) {
       console.error("Error creating batch:", error);
       alert("Failed to create batch: " + error.message);
