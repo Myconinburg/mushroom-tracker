@@ -40,7 +40,7 @@ function BatchCard({
 
     useEffect(() => {
         function handleClickOutside(event) {
-            if (moveMenuRef.current && !moveMenu_ref.current.contains(event.target)) {
+            if (moveMenuRef.current && !moveMenuRef.current.contains(event.target)) {
                 setIsMoveMenuOpen(false);
             }
         }
