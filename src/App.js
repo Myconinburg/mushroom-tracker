@@ -109,24 +109,16 @@ function App() {
   // Using 'main's async/API logic but adding 'Tobys-Branch's UI feedback.
   const addBatch = async (newBatchData) => {
     try {
-      // First, create the new batch as before.
-      const createdBatch = await createBatch({
-          ...newBatchData,
-          // The 'columnId' field doesn't exist on the backend model,
-          // so we should not send it during creation.
-          // columnId: DEFAULT_COLUMN_ID // This line should be removed.
-      });
+      // 1. Send the request to create the new batch.
+      // The server will respond with the complete object for the batch it just created.
+      const createdBatch = await createBatch(newBatchData);
 
-      // --- NEW, MORE RELIABLE LOGIC ---
-      // Instead of just adding the new batch to the old list,
-      // we now re-fetch the ENTIRE list from the server.
-      // This guarantees our data is 100% in sync.
-      const refreshedBatches = await fetchBatches();
-      
-      // Update the state with the complete, fresh list and sort it.
-      setBatches(refreshedBatches.sort((a,b) => b.id - a.id));
+      // 2. The "Optimistic Update"
+      // We manually add the newly created batch to the start of our existing `batches` array.
+      // This is instant and doesn't require another network call.
+      setBatches(prevBatches => [createdBatch, ...prevBatches]);
 
-      // The confirmation modal works as before.
+      // 3. The confirmation modal works exactly as before.
       setConfirmModalProps({
           title: "Batch Created!",
           message: `Batch "${createdBatch.batchLabel}" has been added.`,
